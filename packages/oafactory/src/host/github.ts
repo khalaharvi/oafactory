@@ -140,12 +140,18 @@ export class GitHubHost implements Host {
 
   // Writes go through the REST API rather than `gh pr ...`, which needs GraphQL.
   // REST works with fine-grained tokens and in environments where GraphQL is not reachable.
+  /** Change and issue numbers are interpolated into API paths, so insist they are plain positive integers. */
+  private id(n: number): number {
+    if (!Number.isSafeInteger(n) || n <= 0) throw new Error(`expected a positive integer, got ${String(n)}`);
+    return n;
+  }
+
   private post<T>(method: 'POST' | 'PUT', path: string, body: unknown): Promise<T> {
     return this.gh(['api', '-X', method, path, '--input', '-'], JSON.stringify(body)).then((out) => JSON.parse(out) as T);
   }
 
   async comment(number: number, body: string): Promise<void> {
-    await this.post('POST', `repos/${this.repo}/issues/${number}/comments`, { body });
+    await this.post('POST', `repos/${this.repo}/issues/${this.id(number)}/comments`, { body });
   }
 
   async openChange(input: { head: string; base: string; title: string; body: string }): Promise<number> {
@@ -155,7 +161,7 @@ export class GitHubHost implements Host {
 
   async merge(number: number, sha: string): Promise<MergeResult> {
     // `sha` makes GitHub refuse the merge unless the head is still the commit that was evaluated.
-    const r = await exec('gh', ['api', '-X', 'PUT', `repos/${this.repo}/pulls/${number}/merge`, '--input', '-'],
+    const r = await exec('gh', ['api', '-X', 'PUT', `repos/${this.repo}/pulls/${this.id(number)}/merge`, '--input', '-'],
       { env: this.opts.env, input: JSON.stringify({ sha, merge_method: this.opts.mergeMethod ?? 'squash' }) });
     if (r.code !== 0) {
       let reason = r.stderr.trim() || r.stdout.trim();

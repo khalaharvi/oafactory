@@ -4,6 +4,13 @@ import { connect } from 'node:net';
 import { modelFamily, resolvedModelName, type GatewayConfig, type GatewayModel } from './config.js';
 import type { Store } from './ledger.js';
 
+/** Trim trailing slashes without a regular expression: request paths come from the Worker. */
+function trimSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s[end - 1] === '/') end--;
+  return s.slice(0, end);
+}
+
 const hashKey = (k: string) => createHash('sha256').update(k).digest('hex');
 const UPSTREAM = { anthropic: 'https://api.anthropic.com', openai: 'https://api.openai.com' } as const;
 
@@ -84,7 +91,7 @@ export class Gateway {
     const h: Record<string, string> = { 'content-type': 'application/json', ...headers };
     if (m.provider === 'anthropic') { h['x-api-key'] = key; h['anthropic-version'] ??= '2023-06-01'; }
     else h.authorization = `Bearer ${key}`;
-    const base = (m.base_url ?? UPSTREAM[m.provider]).replace(/\/+$/, '');
+    const base = trimSlashes(m.base_url ?? UPSTREAM[m.provider]);
     return this.fetch(`${base}${path}`, { method: 'POST', headers: h, body });
   }
 
@@ -113,7 +120,7 @@ export class Gateway {
     if (req.method === 'GET' && url === '/healthz') { res.writeHead(200); res.end('ok'); return; }
     // Absolute-URI requests are plain-HTTP proxying, which the Sandbox is never allowed.
     if (/^https?:\/\//i.test(url)) return send(403, 'egress is limited to the gateway allowlist over HTTPS');
-    const path = url.split('?')[0]!.replace(/\/+$/, '');
+    const path = trimSlashes(url.split('?')[0]!);
     const kind = path.endsWith('/messages') ? 'anthropic' : path.endsWith('/chat/completions') ? 'openai' : null;
     if (req.method !== 'POST' || !kind) return send(404, 'the gateway serves POST /v1/messages and POST /v1/chat/completions');
 

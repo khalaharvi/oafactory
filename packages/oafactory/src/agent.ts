@@ -182,11 +182,14 @@ export async function runAgent(o: AgentOptions): Promise<AgentResult> {
   const system = SYSTEM + (await projectInstructions(o.cwd));
   const dialect = o.style === 'anthropic' ? anthropic(o, system) : openai(o, system);
   const maxTurns = o.maxTurns ?? 40;
+  // Trim trailing slashes without a regular expression: the URL is caller-supplied.
+  let base = o.gatewayUrl;
+  while (base.endsWith('/')) base = base.slice(0, -1);
   let lastText = '';
 
   for (let turn = 1; turn <= maxTurns; turn++) {
     const req = dialect.request();
-    const res = await doFetch(`${o.gatewayUrl.replace(/\/+$/, '')}${req.path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...req.headers }, body: JSON.stringify(req.body) });
+    const res = await doFetch(`${base}${req.path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...req.headers }, body: JSON.stringify(req.body) });
     if (res.status === 402) {
       log('the run has spent its budget; stopping');
       return { turns: turn - 1, finished: false, summary: lastText, stopped: 'budget' };
