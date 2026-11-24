@@ -32,6 +32,7 @@ All eight steps of the spec's build order:
 | Docker sandbox | Run for real: the live probes pass in a `node:22-slim` container on an internal network, and a complete work order ran inside it with the built-in Runner. Verified on one Linux host with Docker 29; check yours with `oafactory conformance --live` |
 | Built-in Runner | Covered by the test suite, and run in `node:22-slim` and `node:26-slim` containers for a complete work order against this project's own repository, with a scripted stand-in for the model. **No real model has driven it yet** |
 | **Sigstore signing** | Calls the `sigstore` package's attest function. **Not exercised**: it needs live Fulcio and Rekor |
+| Node 26 features | Run for real in a `node:26-slim` container: the built-in Runner completes a work order under Node's permission model, is refused file access outside the project, and can still run `npm`. Proxy-aware `fetch` reaches the Gateway's proxy; a full HTTPS request through it could not be completed in the test environment, whose network intercepts TLS |
 | **Third-party agent command lines** | Starting points only. **No real agent has been run through them** |
 | **Real model providers** | The Gateway's request and usage handling follows the published API shapes. **No request has been sent to a real provider** |
 | Postgres Ledger backend | Not implemented. The interface it would sit behind exists |

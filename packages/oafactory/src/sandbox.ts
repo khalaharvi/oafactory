@@ -16,6 +16,8 @@ export interface Sandbox {
   exec(command: string, opts: SandboxExec): Promise<ExecResult>;
   /** The path, as seen from inside the Sandbox, of a file in a host directory the Sandbox exposes read-only. */
   toolPath(hostDir: string, file: string): string;
+  /** The working directory as the Worker sees it. */
+  workPath(hostCwd: string): string;
 }
 
 /** Environment variable names that must never reach the Worker. */
@@ -42,6 +44,7 @@ export class LocalSandbox implements Sandbox {
   readonly kind = 'local';
   readonly contained = false;
   toolPath(hostDir: string, file: string): string { return join(hostDir, file); }
+  workPath(hostCwd: string): string { return hostCwd; }
   async exec(command: string, opts: SandboxExec): Promise<ExecResult> {
     const home = mkdtempSync(join(tmpdir(), 'oafactory-home-'));
     return shell(command, { cwd: opts.cwd, env: { ...workerEnv(opts.env), HOME: home }, timeoutMs: opts.timeoutMs, group: true });
@@ -67,6 +70,7 @@ export class DockerSandbox implements Sandbox {
   private toolsDir?: string;
   constructor(private opts: DockerOptions) {}
   toolPath(hostDir: string, file: string): string { this.toolsDir = hostDir; return `${TOOLS_DIR}/${file}`; }
+  workPath(): string { return '/work'; }
   args(command: string, o: SandboxExec, name?: string): string[] {
     const env = workerEnv(o.env, {});
     return [

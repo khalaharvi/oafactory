@@ -72,9 +72,26 @@ async function listFiles(root: string, dir: string, out: string[] = []): Promise
   return out;
 }
 
+/** A fixed wrapper: drop the inherited Node flags, then run the command it is handed as its first argument. */
+const UNRESTRICTED = 'unset NODE_OPTIONS; exec sh -c "$1"';
+
+/**
+ * Arguments for `sh` to run a command. Under Node's permission model, Node
+ * passes its restrictions to every child through NODE_OPTIONS, which would stop
+ * npm, test runners and any other Node program from reading their own files.
+ * The restrictions are meant for this agent's file tools, not for the project's
+ * commands, which the Sandbox confines. So a fixed wrapper drops them and then
+ * runs the command, which it receives as an argument rather than as text
+ * spliced into a script.
+ */
+export function shellArgs(command: string, underPermissionModel: boolean): string[] {
+  return underPermissionModel ? ['-c', UNRESTRICTED, 'sh', command] : ['-c', command];
+}
+
 function runCommand(command: string, cwd: string): Promise<string> {
   return new Promise((res) => {
-    const child = spawn('sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const restricted = (process as { permission?: unknown }).permission !== undefined;
+    const child = spawn('sh', shellArgs(command, restricted), { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { out += d; });
