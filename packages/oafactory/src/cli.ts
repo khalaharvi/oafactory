@@ -25,6 +25,7 @@ import { watch } from './watcher.js';
 import { GitTransport } from './workspace.js';
 
 export const VERSION = '0.1.0';
+export const DEFAULT_SANDBOX_IMAGE = 'node:22-slim';
 
 const HELP = `oafactory ${VERSION}: an open software factory
 
@@ -164,8 +165,8 @@ async function makeSandbox(flags: Flags): Promise<{ sandbox: Sandbox; listenHost
   const kind = (flags.sandbox as string | undefined) ?? 'docker';
   if (kind === 'local') return { sandbox: new LocalSandbox(), listenHost: '127.0.0.1' };
   if (kind !== 'docker') throw new Error(`unknown sandbox "${kind}"; use docker or local`);
-  const image = (flags.image as string | undefined) ?? process.env.OAFACTORY_SANDBOX_IMAGE;
-  if (!image) throw new Error('the docker sandbox needs an image with your agent and toolchain installed: pass --image or set OAFACTORY_SANDBOX_IMAGE');
+  // The built-in Runner needs only Node. Use your own image when the work needs your project's toolchain.
+  const image = (flags.image as string | undefined) ?? process.env.OAFACTORY_SANDBOX_IMAGE ?? DEFAULT_SANDBOX_IMAGE;
   const network = (flags.network as string | undefined) ?? SANDBOX_NETWORK;
   return { sandbox: new DockerSandbox({ image, network }), listenHost: await ensureNetwork(network) };
 }
@@ -414,7 +415,7 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
       const url = `http://${listenHost}:${server.port}`;
       const secrets = [process.env.OAFACTORY_HARNESS_TOKEN, process.env.OAFACTORY_GATE_TOKEN, process.env.OAFACTORY_WATCHER_TOKEN, process.env.GH_TOKEN, process.env.GITLAB_TOKEN,
         ...Object.values(gwConfig.models).map((m) => process.env[m.key_env])].filter((s): s is string => !!s);
-      const probes = await liveProbes(sandbox, dir, { HTTPS_PROXY: url, HTTP_PROXY: url, https_proxy: url, http_proxy: url }, secrets);
+      const probes = await liveProbes(sandbox, dir, url, secrets);
       for (const p of probes) out(`${p.pass ? col(32, 'pass') : col(31, 'FAIL')}  ${p.id}  ${p.detail}`);
       if (!sandbox.contained) out(col(33, 'The local sandbox is not contained; these results say little. Use --sandbox docker.'));
       return probes.every((p) => p.pass) ? 0 : 1;

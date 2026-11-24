@@ -10,8 +10,14 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - `oafactory run "<what you want done>"`: start a run from a sentence, without writing a work order file. The run prints its plain-language explanation before it starts.
 - Docs: "A work order, in plain words" and "Free and open", and matching sections on the site.
 
+- A built-in Runner (`roles.runner.use: builtin`): OAFactory's own small coding agent, with file and command tools, for Anthropic-style and OpenAI-style APIs. It needs only Node in the Sandbox image, so `node:22-slim` is now the default image and `oafactory init` selects it.
+
 ### Changed
 
+- The GitHub adapter opens changes, comments and merges through the REST API, so it no longer needs GraphQL access. Merges are pinned with the API's `sha` parameter.
+- `oafactory conformance --live` needs only Node in the image, and C1.1 now includes a positive control: the Gateway must be reachable, so a Sandbox with no network at all cannot pass by accident.
+- The Docker sandbox runs the Worker as the Harness's user, so the files it leaves are not owned by root.
+- `oafactory explain <receipt>` lists evidence the risk level does not require separately, so a low-risk change is no longer shown as failing checks it never needed.
 - The README now leads with a banner, a capture of the demo and a flow diagram.
 - Status page: the GitHub adapter's read paths have been run against live GitHub.
 

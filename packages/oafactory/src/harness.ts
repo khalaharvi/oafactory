@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { CONFIG_PATH, effectiveBudget, parseFactoryConfig, type FactoryConfig } from './config.js';
 import type { Gateway } from './gateway.js';
 import { gate, recordAbandoned, type GateDeps, type GateOptions, type GateResult } from './gate.js';
@@ -25,10 +26,14 @@ export const RUNNER_COMMANDS: Record<string, string> = {
   codex: 'codex exec --full-auto -m "$OAFACTORY_MODEL" "$OAFACTORY_TASK"',
 };
 
+/** File name of the built-in Runner's standalone entry point, next to this module once compiled. */
+export const AGENT_ENTRY = 'agent-bin.js';
+
 export function runnerCommand(config: FactoryConfig): string {
   const role = config.roles.runner;
+  if (role.use === 'builtin') return 'node "$OAFACTORY_AGENT"';
   const cmd = role.use === 'command' ? role.command : RUNNER_COMMANDS[role.use];
-  if (!cmd) throw new Error(`no runner adapter for "${role.use}". Known: ${Object.keys(RUNNER_COMMANDS).join(', ')}, or "command" with roles.runner.command.`);
+  if (!cmd) throw new Error(`no runner adapter for "${role.use}". Known: builtin, ${Object.keys(RUNNER_COMMANDS).join(', ')}, or "command" with roles.runner.command.`);
   return cmd;
 }
 
@@ -60,6 +65,8 @@ export interface HarnessDeps {
   gatewayUrl: string;
   sandbox: Sandbox;
   transport: Transport;
+  /** Directory holding the compiled built-in Runner. Defaults to this module's directory. */
+  agentDir?: string;
   reviewer?: Reviewer;
   gateOptions?: GateOptions;
   now?: () => Date;
@@ -92,6 +99,11 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
   const command = runnerCommand(config);
   const runner = gateway.describe(config.roles.runner.model);
   const reviewerModel = gateway.describe(config.roles.reviewer.model);
+  const builtin = config.roles.runner.use === 'builtin';
+  const runnerEnv: Record<string, string> = builtin ? {
+    OAFACTORY_AGENT: sandbox.toolPath(deps.agentDir ?? dirname(fileURLToPath(import.meta.url)), AGENT_ENTRY),
+    OAFACTORY_API_STYLE: gateway.model(config.roles.runner.model)!.provider,
+  } : {};
   const reviewer = deps.reviewer ?? makeReviewer(config, gateway, sandbox, (k) => gatewayEnv(deps.gatewayUrl, k));
   if (!sandbox.contained) log('warning: the sandbox is not contained; do not run untrusted work this way');
 
@@ -124,7 +136,7 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
       log(`run ${id}: ${config.roles.runner.use} on ${runner.resolved}, budget $${budget.usd_per_run} / ${budget.minutes_per_run} min`);
       const res = await sandbox.exec(command, {
         cwd: work, timeoutMs: budget.minutes_per_run * 60_000,
-        env: { ...gatewayEnv(deps.gatewayUrl, key), OAFACTORY_TASK: task, OAFACTORY_MODEL: config.roles.runner.model, OAFACTORY_SCOPE: wo.scope.paths.join(':') },
+        env: { ...gatewayEnv(deps.gatewayUrl, key), ...runnerEnv, OAFACTORY_TASK: task, OAFACTORY_MODEL: config.roles.runner.model, OAFACTORY_SCOPE: wo.scope.paths.join(':') },
       });
       gateway.revoke(id);
       store.updateRun(id, { ended_at: now().toISOString() });
@@ -132,7 +144,7 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
       const spent = store.usage(id).cost_usd;
       if (res.timedOut) { results.push(abandon(`Run exceeded its time budget of ${budget.minutes_per_run} minutes.`, baseSha)); break; }
       if (spent >= budget.usd_per_run) { results.push(abandon(`Run reached its budget of $${budget.usd_per_run} (spent $${spent.toFixed(2)}).`, baseSha)); break; }
-      if (res.code !== 0) { results.push(abandon(`Runner exited with status ${res.code}.`, baseSha)); break; }
+      if (res.code !== 0) { results.push(abandon(`Runner exited with status ${res.code}.${res.stderr.trim() ? ` Last output: ${res.stderr.trim().split('\n').at(-1)!.slice(0, 300)}` : ''}`, baseSha)); break; }
 
       const branch = `oafactory/${id}`;
       const pub = await transport.publish(work, baseSha, branch, `${wo.intent.split('\n')[0]!.slice(0, 72)}\n\nWork order ${wo.id}, attempt ${attempt}.`);

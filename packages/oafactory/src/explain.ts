@@ -104,13 +104,25 @@ const EVIDENCE_TEXT: Record<EvidenceKind, [yes: string, no: string]> = {
 function evidenceNote(e: Evidence): string {
   const d = (e.detail ?? {}) as Record<string, unknown>;
   if (e.kind === 'budget' && typeof d.cost_usd === 'number' && typeof d.limit_usd === 'number') return ` (${money(d.cost_usd)} of ${money(d.limit_usd)})`;
-  if (e.kind === 'test_integrity' && typeof d.base === 'number' && typeof d.head === 'number') return ` (${d.base} tests before, ${d.head} after)`;
+  if (e.kind === 'test_integrity' && typeof d.base === 'number' && typeof d.head === 'number') return ` (${plural(d.base, 'test')} before, ${d.head} after)`;
   if (e.kind === 'checks' || e.kind === 'holdout') {
     const failed = Object.entries(d).filter(([, v]) => v !== 'success').map(([k, v]) => `${k}: ${String(v)}`);
     if (failed.length) return ` (${list(failed)})`;
   }
   if (typeof d.reason === 'string' && !e.met) return ` (${d.reason})`;
   return '';
+}
+
+/** Evidence the tier's bar asks for. Anything else on the receipt is shown as extra information. */
+function requiredAt(tier: Tier, evidence: Evidence[]): Set<EvidenceKind> {
+  const need = new Set<EvidenceKind>(['checks', 'budget']);
+  if (tier >= 1) {
+    for (const k of ['test_integrity', 'new_test', 'review'] as const) need.add(k);
+    // Holdout evidence appears on a receipt only when holdout checks are configured.
+    if (evidence.some((e) => e.kind === 'holdout')) need.add('holdout');
+  }
+  if (tier >= 2) need.add('behavior');
+  return need;
 }
 
 /** What happened in a run, in plain words. */
@@ -138,7 +150,11 @@ export function explainReceipt(st: Statement, outcome?: OutcomeRecord): string {
       ...p.tier.because.slice(0, 6).map((b) => `- ${b}`),
       ...(p.tier.because.length > 6 ? [`- and ${p.tier.because.length - 6} more`] : []),
     ]));
-    lines.push('', section('What was checked', p.evidence.map((e) => `${e.met ? '[yes]' : '[no] '} ${EVIDENCE_TEXT[e.kind][e.met ? 0 : 1]}${evidenceNote(e)}`)));
+    const need = requiredAt(p.tier.value, p.evidence);
+    const line = (e: Evidence) => `${e.met ? '[yes]' : '[no] '} ${EVIDENCE_TEXT[e.kind][e.met ? 0 : 1]}${evidenceNote(e)}`;
+    lines.push('', section('What was checked', p.evidence.filter((e) => need.has(e.kind)).map(line)));
+    const extra = p.evidence.filter((e) => !need.has(e.kind));
+    if (extra.length) lines.push('', section('Also noted, but not required at this risk level', extra.map(line)));
   }
 
   lines.push('', section('What could not be confirmed', p.unverified.length ? p.unverified.map((u) => `- ${u}`) : ['Nothing was recorded here.']));

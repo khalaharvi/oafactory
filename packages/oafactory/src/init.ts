@@ -68,7 +68,8 @@ budget: { usd_per_run: 2.50, minutes_per_run: 30, max_attempts: 2 }
 
 roles:
   # Model names are aliases resolved by your Gateway config (~/.oafactory/gateway.yaml).
-  runner:   { use: mini-swe-agent, model: oafactory/coder }
+  # builtin is OAFactory's own small agent. Others: mini-swe-agent, claude-code, pi, codex, or command.
+  runner:   { use: builtin, model: oafactory/coder }
   reviewer: { use: builtin, model: oafactory/reviewer }
 
 tiers:

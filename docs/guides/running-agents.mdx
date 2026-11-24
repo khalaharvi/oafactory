@@ -6,7 +6,7 @@ description: Set up the Gateway and the Sandbox, write a work order, and let the
 `oafactory run` takes a work order and does the rest: sandboxed agent, branch, pull request, review and Gate.
 
 <Note>
-The Harness, Gateway and Reviewer are covered by the test suite using a local sandbox, a stub model provider and an in-memory Git host. The Docker sandbox and the built-in agent command lines have not been exercised against real services in this project's CI. Run `oafactory conformance --live` on your own machine before trusting containment.
+The Harness, Gateway, Reviewer and built-in Runner have been run end to end inside a real Docker sandbox, with a scripted stand-in for the model provider. No request has been sent to a real provider yet, and the command lines for third-party agents are unverified. Run `oafactory conformance --live` on your own machine before trusting containment.
 </Note>
 
 ## 1. Configure the Gateway
@@ -46,14 +46,16 @@ Keep this file and the keys it names outside every repository. See the [Gateway 
 | `docker` (default) | A container on an internal Docker network. Its only route out is the Gateway, which allows HTTPS to an allowlist of package registries. | Real work |
 | `local` | None. A child process with a scrubbed environment and a throwaway home directory. | Developing your setup with trusted tasks |
 
-For Docker you supply an image with your agent and your project's toolchain installed:
+The default image is `node:22-slim`, which is all the built-in Runner needs. When the work needs your project's toolchain (Python, a compiler, your test runner), supply an image that has it, plus Node if you use the built-in Runner:
 
 ```bash
 export OAFACTORY_SANDBOX_IMAGE=ghcr.io/you/factory-sandbox:latest
 oafactory conformance --live --sandbox docker
 ```
 
-The live probes check, inside your real Sandbox, that a request to a host off the allowlist is refused, that no Git host credential is present, and that no provider key or role token is readable.
+The live probes run inside your real Sandbox. They check that the Gateway is reachable, that a request to a host off the allowlist is refused, that the internet cannot be reached directly, that no Git host credential is present, and that no provider key or role token is readable. They need Node in the image.
+
+The container runs as your user, with every capability dropped, on a Docker network created with `--internal`. Its only route out is the Gateway.
 
 ## 3. Pick a Runner
 
@@ -61,19 +63,22 @@ In `.oafactory/factory.yaml`:
 
 ```yaml
 roles:
-  runner:   { use: mini-swe-agent, model: oafactory/coder }
+  runner:   { use: builtin, model: oafactory/coder }
   reviewer: { use: builtin, model: oafactory/reviewer }
 ```
 
+`builtin` is OAFactory's own small coding agent, so there is nothing else to install. It can list, read and write files, replace text, and run commands, all inside the project directory, and it stops when it calls its `finish` tool, after 40 turns, or when the budget is spent. It works with Anthropic-style and OpenAI-style model APIs. The Harness mounts it into the Sandbox read-only.
+
 | `use` | Command the Harness runs in the Sandbox |
 |---|---|
+| `builtin` | OAFactory's own agent. Needs only Node in the Sandbox image |
 | `mini-swe-agent` | `mini -m "$OAFACTORY_MODEL" -t "$OAFACTORY_TASK" -y --exit-immediately` |
 | `claude-code` | `claude -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL" --dangerously-skip-permissions` |
 | `pi` | `pi -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL"` |
 | `codex` | `codex exec --full-auto -m "$OAFACTORY_MODEL" "$OAFACTORY_TASK"` |
 | `command` | Whatever you put in `roles.runner.command` |
 
-The built-in command lines are starting points. Agent flags change between versions, and none of them has been verified against a live agent here. `use: command` always works:
+The command lines for third-party agents are starting points. Agent flags change between versions, and none of them has been verified against a live agent here. `use: command` always works:
 
 ```yaml
 roles:

@@ -2,15 +2,20 @@ import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { exec, type ExecResult } from './exec.js';
+import { exec, shell, type ExecResult } from './exec.js';
 
 export interface SandboxExec { cwd: string; env: Record<string, string>; timeoutMs?: number }
+
+/** Where the built-in Runner is mounted inside a container. */
+export const TOOLS_DIR = '/opt/oafactory';
 
 export interface Sandbox {
   readonly kind: string;
   /** False when the sandbox does not actually confine the Worker. */
   readonly contained: boolean;
   exec(command: string, opts: SandboxExec): Promise<ExecResult>;
+  /** The path, as seen from inside the Sandbox, of a file in a host directory the Sandbox exposes read-only. */
+  toolPath(hostDir: string, file: string): string;
 }
 
 /** Environment variable names that must never reach the Worker. */
@@ -36,9 +41,10 @@ export function workerEnv(extra: Record<string, string>, parent: NodeJS.ProcessE
 export class LocalSandbox implements Sandbox {
   readonly kind = 'local';
   readonly contained = false;
+  toolPath(hostDir: string, file: string): string { return join(hostDir, file); }
   async exec(command: string, opts: SandboxExec): Promise<ExecResult> {
     const home = mkdtempSync(join(tmpdir(), 'oafactory-home-'));
-    return exec('sh', ['-c', command], { cwd: opts.cwd, env: { ...workerEnv(opts.env), HOME: home }, timeoutMs: opts.timeoutMs, group: true });
+    return shell(command, { cwd: opts.cwd, env: { ...workerEnv(opts.env), HOME: home }, timeoutMs: opts.timeoutMs, group: true });
   }
 }
 
@@ -58,12 +64,17 @@ export interface DockerOptions {
 export class DockerSandbox implements Sandbox {
   readonly kind = 'docker';
   readonly contained = true;
+  private toolsDir?: string;
   constructor(private opts: DockerOptions) {}
+  toolPath(hostDir: string, file: string): string { this.toolsDir = hostDir; return `${TOOLS_DIR}/${file}`; }
   args(command: string, o: SandboxExec, name?: string): string[] {
     const env = workerEnv(o.env, {});
     return [
       'run', '--rm', ...(name ? ['--name', name] : []), '--network', this.opts.network, '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '512',
       '-v', `${o.cwd}:/work`, '-w', '/work', '-e', 'HOME=/tmp',
+      // Run as the Harness's user so the files the Worker leaves behind are not owned by root.
+      ...(typeof process.getuid === 'function' ? ['--user', `${process.getuid()}:${process.getgid!()}`] : []),
+      ...(this.toolsDir ? ['-v', `${this.toolsDir}:${TOOLS_DIR}:ro`] : []),
       ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
       ...(this.opts.extraArgs ?? []), this.opts.image, 'sh', '-c', command,
     ];

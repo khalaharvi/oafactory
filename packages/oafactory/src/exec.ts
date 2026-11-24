@@ -1,12 +1,10 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process';
 
 export interface ExecResult { code: number; stdout: string; stderr: string; timedOut: boolean }
 export interface ExecOptions { cwd?: string; env?: NodeJS.ProcessEnv; input?: string; timeoutMs?: number; inherit?: boolean; /** Run in its own process group and kill the whole group on timeout. */ group?: boolean }
 
-/** Run a program with an argument vector. Never goes through a shell. */
-export function exec(cmd: string, args: string[], opts: ExecOptions = {}): Promise<ExecResult> {
+function collect(child: ChildProcess, opts: ExecOptions): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: ['pipe', opts.inherit ? 'inherit' : 'pipe', opts.inherit ? 'inherit' : 'pipe'], detached: !!opts.group });
     let stdout = '', stderr = '', timedOut = false;
     child.stdout?.on('data', (d) => { stdout += d; });
     child.stderr?.on('data', (d) => { stderr += d; });
@@ -18,6 +16,22 @@ export function exec(cmd: string, args: string[], opts: ExecOptions = {}): Promi
     child.stdin?.on('error', () => { /* the child exited without reading stdin */ });
     child.stdin?.end(opts.input ?? '');
   });
+}
+
+const stdio = (opts: ExecOptions): StdioOptions => ['pipe', opts.inherit ? 'inherit' : 'pipe', opts.inherit ? 'inherit' : 'pipe'];
+
+/** Run a program with an argument vector. Never goes through a shell: arguments are passed as they are. */
+export function exec(cmd: string, args: string[], opts: ExecOptions = {}): Promise<ExecResult> {
+  return collect(spawn(cmd, args, { cwd: opts.cwd, env: opts.env ?? process.env, stdio: stdio(opts), detached: !!opts.group, shell: false }), opts);
+}
+
+/**
+ * Run a command line through `sh -c`. This is the only place a shell is used,
+ * and it is for one purpose: running the Worker's command inside a sandbox.
+ * Nothing that talks to the Git host goes through here.
+ */
+export function shell(command: string, opts: ExecOptions = {}): Promise<ExecResult> {
+  return collect(spawn('sh', ['-c', command], { cwd: opts.cwd, env: opts.env ?? process.env, stdio: stdio(opts), detached: !!opts.group }), opts);
 }
 
 export async function run(cmd: string, args: string[], opts: ExecOptions = {}): Promise<string> {
