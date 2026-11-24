@@ -4,10 +4,6 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
-### Changed
-
-- Contributions now go through feature branches and pull requests that merge automatically when CI is green; `main` is protected.
-
 ## [0.1.0] - 2026-11-24
 
 The first release. It implements all eight build steps of specification v0.1, draft revision 2.
@@ -28,6 +24,12 @@ The first release. It implements all eight build steps of specification v0.1, dr
 - **Conformance suite.** Tests named after spec IDs C1.1 to C3.8, plus live Sandbox probes (`oafactory conformance --live`).
 - **`oafactory demo`.** The whole lifecycle on an in-memory Git host.
 - **Marketing site and documentation**, as a Next.js app deployable to Vercel, with the docs also ready for Mintlify.
+
+### Project
+
+- Contributions go through feature branches and pull requests that merge when CI is green; `main` is protected by a ruleset kept in `.github/rulesets/main.json`.
+- CodeQL scans every pull request.
+- Releases are tagged automatically when a new version lands on `main`.
 
 ### Known limitations
 
