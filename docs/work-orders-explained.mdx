@@ -1,0 +1,120 @@
+---
+title: A work order, in plain words
+description: What a work order is, what happens after you hand one over, and who decides whether the result is accepted. No engineering background needed.
+---
+
+A **work order** is a written request for an AI coding assistant to make one change to a software project. It says three things:
+
+- **What you want done**, in a sentence or two.
+- **Where the AI may make changes.** A list of folders. Anything outside them is off limits.
+- **How much it may spend**, in money and in minutes.
+
+That is all. You do not need to know how the change will be made.
+
+```yaml
+id: "0042"
+requested_by: krishna
+intent: Fix the crash when the config file is empty.
+scope: { paths: [src/, tests/] }
+budget: { usd_per_run: 1.00 }
+```
+
+## What happens after you hand it over
+
+1. **An AI assistant does the work on a private copy of the project.** It can edit files and try things out. It cannot publish its work, cannot approve it, and never sees a password or key.
+2. **Its changes are published as a proposal.** Anyone on the team can read exactly what was changed and comment on it. Nothing has been accepted yet.
+3. **A second AI, from a different maker, reads the changes** and says whether it would approve them. This is a second opinion and nothing more: it is never enough on its own.
+4. **The project's automated checks run.** These are the same checks that run on changes made by people.
+5. **The Gate decides.** The Gate is a fixed set of rules, not an AI. It sorts the change by how risky it is, looks at what the checks found, and either accepts the change or sends it to a person.
+6. **Accepted changes are watched for a week.** If one breaks the checks, it is undone automatically.
+
+At the end you get a **receipt**: what was checked, what could not be confirmed, what it cost, and why the Gate decided as it did.
+
+## Who decides
+
+It depends on how risky the change is. Risk is judged from which files were touched, never from what the AI says about its own work.
+
+| Risk | Typical change | Who decides |
+|---|---|---|
+| Low | Wording in the documentation | The factory may accept it, once it has earned that right |
+| Moderate | A small code change that comes with a new test | The factory may accept it, once it has earned that right |
+| Higher | Anything large, or anything the rules do not name | Always a person |
+| Sensitive | Changes to the rules, the checks or existing tests | Always a person |
+
+### "Once it has earned that right"
+
+Every project starts in **shadow mode**. The factory accepts nothing on its own. It only writes down what it would have done, and a person makes every decision as before.
+
+After a while you can compare. If people agreed with the factory's "I would have accepted this" nearly every time, across at least 20 low-risk changes, a person may choose to let it accept low-risk changes on its own. Even then, about one change in ten is still sent to a person as a spot check.
+
+If a change the factory accepted has to be undone, the factory loses that right straight away and has to earn it again.
+
+## See it for your own request
+
+You can ask for this explanation for any work order before it runs, using your project's real rules and budget:
+
+```bash
+oafactory explain work-order.yaml
+```
+
+And for any finished run:
+
+```bash
+oafactory explain 0042-1
+```
+
+```
+Receipt 0042-1: proposed change #431 in acme/widgets
+
+In short
+  The factory would have accepted this change. The project is in shadow mode, so a person decides.
+
+How risky was it judged to be
+  Moderate risk (tier 1), because of the files it touched:
+  - src/config.py matched src/**
+
+What was checked
+  [yes] The project's automated checks passed
+  [yes] The work stayed within its money and time budget ($0.84 of $1.00)
+  [yes] Every test that ran before still ran (412 tests before, 413 after)
+  [yes] The change added a new test
+  [yes] A second AI from a different maker approved it
+```
+
+These explanations are written from fixed wording filled in with the facts of the run. No AI writes them, so the same run always reads the same way.
+
+## Common questions
+
+**Can the AI approve its own work?**
+No. It has no way to publish or accept anything, and nothing it says about its own work is counted. The checks are read directly from where they ran.
+
+**Can it change the rules it is judged by?**
+It can propose to, like anyone can. Any change to the rules, the checks or an existing test is marked sensitive and always goes to a person. The rules used to judge a change are the ones in place before the change, never the ones inside it.
+
+**What if it spends too much?**
+It cannot go past the budget on the work order. When the money or the time runs out, the attempt is stopped, and you still get a receipt for it.
+
+**What does "passed the checks" actually prove?**
+Less than it sounds. It proves the change did not break anything the checks look for. It does not prove the change is right, or well made. This is why only small, low-risk changes can ever be accepted without a person, and why the factory has to earn even that.
+
+**What if something goes wrong after a change is accepted?**
+If the project's checks fail on the accepted change, they are run once more to rule out a fluke. If they fail again, the change is undone and the factory stops accepting changes at that risk level.
+
+**Does any of this cost money?**
+OAFactory itself is free. You pay the AI provider for the assistant's usage, which is what the budget limits. See [Free and open](/free-and-open).
+
+## Words you will see
+
+| Word | Meaning |
+|---|---|
+| Work order | The written request: what to do, where, and how much to spend |
+| Run | One attempt at a work order |
+| Proposed change | The AI's changes, published for people to read. Engineers call this a pull request |
+| Checks | Automated tests that run on every proposed change |
+| Gate | The fixed rules that decide whether a change is accepted or sent to a person |
+| Tier | The risk level of a change, from 0 (low) to 3 (sensitive) |
+| Shadow mode | The factory only records what it would have done; people decide everything |
+| Standing | The right, earned over time, to accept changes at a risk level without a person |
+| Receipt | The record of a run: what was checked, what was not, the cost and the decision |
+| Escalate | Send to a person |
+| Revert | Undo an accepted change |

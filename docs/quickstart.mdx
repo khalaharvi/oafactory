@@ -72,6 +72,16 @@ The Gate reads the change, the checks and the config from the Git host, writes a
 A pull request that OAFactory did not open has no work order and no metered run, so its `budget` evidence is missing and the Gate escalates it. You still get the tier and the evidence summary. To get would-merge decisions, let OAFactory run the agent: see [Running agents](/guides/running-agents).
 </Note>
 
+## 6. Explain a work order
+
+Before you run anything, see what a request would do, in plain words:
+
+```bash
+oafactory explain work-order.yaml
+```
+
+The output is written for people who are not engineers. See [A work order, in plain words](/work-orders-explained).
+
 ## Next steps
 
 - [Shadow mode on GitHub](/guides/shadow-mode-github): publish test reports and run the Gate after CI.

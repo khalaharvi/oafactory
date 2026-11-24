@@ -27,7 +27,7 @@ All eight steps of the spec's build order:
 | Receipt signing with a local key (DSSE, Ed25519) | Covered by the test suite |
 | Gateway: run keys, budgets, metering, egress allowlist | Covered by the test suite, against a stub provider |
 | Harness: credential hygiene, pristine commits, base-branch instruction files, budgets, attempts | Covered by the test suite, with real git and a local sandbox |
-| **GitHub adapter** | Written against the REST API and `gh` 2.x flags. **Not yet run against live GitHub** |
+| **GitHub adapter** | Reading a pull request, its files, checks, commits and the base-branch config has been run against live GitHub, and the test-report artifact is found for the right commits. **Not yet run live**: downloading and parsing a real report, commenting, opening a change, rerunning a check and merging |
 | **GitLab adapter** | Written against the REST API documentation. **Not yet run against any GitLab instance** |
 | **Docker sandbox** | Command construction is tested. **The container and its network have not been run**; use `oafactory conformance --live` |
 | **Sigstore signing** | Calls the `sigstore` package's attest function. **Not exercised**: it needs live Fulcio and Rekor |
