@@ -1,0 +1,87 @@
+---
+title: Troubleshooting
+description: Problems people hit when running OAFactory for the first time, what each one means, and what to do about it.
+---
+
+Every entry here came from a real run. If you hit something that is not listed, please open a field report.
+
+## The Gate escalates everything
+
+### "missing evidence: budget"
+
+The pull request was not opened by the factory, so there is no metered run behind it. The Gate still reports the tier and the rest of the evidence, but it cannot say what the work cost. Let the factory do the work with `oafactory run`, and the budget evidence comes from the Gateway.
+
+### "missing evidence: test_integrity"
+
+The Gate compares a test report for the base commit with one for the head commit. One of them is missing. Check that:
+
+- your test job uploads an artifact named exactly `oafactory-test-report`, containing JUnit XML;
+- the same workflow also runs on pushes to your default branch, so the base commit has a report too;
+- the artifact has not expired.
+
+Tier 0 changes do not need this evidence. Tier 1 changes always do.
+
+### A check is reported as "missing"
+
+`checks.required` must contain the exact names of your CI jobs. The Gate matches them literally. `oafactory ready` warns when it cannot find a job with that name in your workflow files.
+
+### A change that adds a test is always Tier 2
+
+New files under your `append_only` paths match no tier rule, so they fall to the default tier. Add a rule such as `{ paths: ["tests/**"], tier: 1 }`. `oafactory ready` warns about this.
+
+## The pull request cannot be merged
+
+### A title check fails
+
+The first line of a work order's intent becomes the pull request title. If your repository checks titles, for example for Conventional Commits, write the first line of the intent in that form:
+
+```yaml
+intent: |
+  docs: add a troubleshooting guide
+
+  Cover the problems found when the factory first ran against its own repository.
+```
+
+### Code scanning comments block the merge
+
+If your branch rules require review threads to be resolved, comments left by a code scanner count. Fix the finding and push; the scanner closes its own thread when the finding is gone. Do not have the author of a change dismiss findings on it.
+
+## A run is abandoned
+
+### "Runner exited with status 127"
+
+Status 127 means the command was not found. The agent named in `roles.runner.use` is not installed in the Sandbox image. Either build an image that contains it, or use `use: builtin`, which needs only Node.
+
+### "Run reached its budget"
+
+The run spent its money or its time. Raise `budget` in the factory config if the work is genuinely larger. A work order can lower the budget but never raise it.
+
+### "Runner made no changes"
+
+The agent finished without editing any file. Read the run's output for why. An intent that is too vague is the usual cause.
+
+## The Sandbox
+
+### `conformance --live` fails C1.1 with `--sandbox local`
+
+That is the correct result. The local sandbox is a child process with a scrubbed environment. It can reach the network, so it is not containment. Use `--sandbox docker`.
+
+### The Sandbox cannot reach the Gateway
+
+The Gateway listens on the address of the internal Docker network, `oafactory-sandbox`. If a host firewall blocks traffic from Docker networks to the host, allow it for that network only. The first line of the C1.1 result, "gateway reachable", tells you whether this is the problem.
+
+### Package installs fail inside the Sandbox
+
+The Sandbox reaches the internet only through the Gateway, and only for hosts on its `egress` list. Add your registry's host to `egress` in the Gateway config. Tools that do not honour `HTTPS_PROXY` cannot get out at all.
+
+## Costs
+
+### Every run costs $0.00
+
+The Gateway prices usage with `usd_per_mtok` from its config. If those are left at zero, the budget never binds. Set them to what your provider charges you.
+
+## Credentials
+
+### "earned mode needs three distinct role credentials"
+
+The Harness, the Gate and the Watcher must each have a token of their own, and no two may be the same. Shadow mode only warns about this. Earned mode refuses to start.

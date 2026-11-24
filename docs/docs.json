@@ -34,7 +34,8 @@
         "pages": [
           "guides/shadow-mode-github",
           "guides/running-agents",
-          "guides/earned-mode"
+          "guides/earned-mode",
+          "guides/troubleshooting"
         ]
       },
       {
