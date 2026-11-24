@@ -29,26 +29,30 @@ export const RUNNER_COMMANDS: Record<string, string> = {
 /** File name of the built-in Runner's standalone entry point, next to this module once compiled. */
 export const AGENT_ENTRY = 'agent-bin.js';
 
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
-
 /**
- * Node flags for the built-in Runner. From Node 26 it runs under Node's
- * permission model: its own file access is limited to the project and the
- * directory it was loaded from. This is a second layer under the path checks in
- * the agent's tools. It does not confine the commands the agent runs, which is
- * the Sandbox's job.
+ * The NODE_OPTIONS value for the built-in Runner, or '' for none. From Node 26
+ * it runs under Node's permission model: its own file access is limited to the
+ * project and the directory it was loaded from. This is a second layer under
+ * the path checks in the agent's tools. It does not confine the commands the
+ * agent runs, which is the Sandbox's job.
+ *
+ * The flags travel in an environment variable, so no command line is ever
+ * assembled from a path.
  */
-export function nodeFlags(nodeVersion: string, workDir: string, toolsDir: string): string {
+export function nodeOptions(nodeVersion: string, workDir: string, toolsDir: string): string {
   const major = Number.parseInt(nodeVersion.trim().replace(/^v/, ''), 10);
   if (!Number.isFinite(major) || major < 26) return '';
+  // NODE_OPTIONS quotes a value with double quotes. Rather than guess at its escaping rules,
+  // run without the permission model when a path contains a quote or a backslash.
+  if ([workDir, toolsDir].some((p) => p.includes('"') || p.includes('\\'))) return '';
   // One flag per path: recent Node versions do not split a comma-separated list.
-  return [`--allow-fs-read=${workDir}`, `--allow-fs-read=${toolsDir}`, `--allow-fs-write=${workDir}`].map(quote)
-    .reduce((flags, f) => `${flags} ${f}`, '--permission --allow-child-process --allow-net');
+  const paths = [`--allow-fs-read=${workDir}`, `--allow-fs-read=${toolsDir}`, `--allow-fs-write=${workDir}`].map((f) => `"${f}"`);
+  return ['--permission', '--allow-child-process', '--allow-net', ...paths].join(' ');
 }
 
-export function runnerCommand(config: FactoryConfig, flags = ''): string {
+export function runnerCommand(config: FactoryConfig): string {
   const role = config.roles.runner;
-  if (role.use === 'builtin') return `node ${flags ? `${flags} ` : ''}"$OAFACTORY_AGENT"`;
+  if (role.use === 'builtin') return 'node "$OAFACTORY_AGENT"';
   const cmd = role.use === 'command' ? role.command : RUNNER_COMMANDS[role.use];
   if (!cmd) throw new Error(`no runner adapter for "${role.use}". Known: builtin, ${Object.keys(RUNNER_COMMANDS).join(', ')}, or "command" with roles.runner.command.`);
   return cmd;
@@ -154,17 +158,19 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
       const key = gateway.issueKey(id, budget.usd_per_run);
       const task = feedback ? `${wo.intent}\n\nA previous attempt was not accepted:\n${feedback}` : wo.intent;
       log(`run ${id}: ${config.roles.runner.use} on ${runner.resolved}, budget $${budget.usd_per_run} / ${budget.minutes_per_run} min`);
-      let runCommand = command;
+      const nodeEnv: Record<string, string> = {};
       if (builtin) {
         // Ask the Sandbox which Node it has, and use the permission model where it exists.
         const version = await sandbox.exec('node -p process.versions.node', { cwd: work, env: {}, timeoutMs: 60_000 });
-        const flags = version.code === 0 ? nodeFlags(version.stdout, sandbox.workPath(work), dirname(runnerEnv.OAFACTORY_AGENT!)) : '';
-        runCommand = runnerCommand(config, flags);
-        if (flags) log(`run ${id}: Node ${version.stdout.trim()} in the sandbox; the built-in Runner is under Node's permission model`);
+        const options = version.code === 0 ? nodeOptions(version.stdout, sandbox.workPath(work), dirname(runnerEnv.OAFACTORY_AGENT!)) : '';
+        if (options) {
+          nodeEnv.NODE_OPTIONS = options;
+          log(`run ${id}: Node ${version.stdout.trim()} in the sandbox; the built-in Runner is under Node's permission model`);
+        }
       }
-      const res = await sandbox.exec(runCommand, {
+      const res = await sandbox.exec(command, {
         cwd: work, timeoutMs: budget.minutes_per_run * 60_000,
-        env: { ...gatewayEnv(deps.gatewayUrl, key), ...runnerEnv, OAFACTORY_TASK: task, OAFACTORY_MODEL: config.roles.runner.model, OAFACTORY_SCOPE: wo.scope.paths.join(':') },
+        env: { ...gatewayEnv(deps.gatewayUrl, key), ...runnerEnv, ...nodeEnv, OAFACTORY_TASK: task, OAFACTORY_MODEL: config.roles.runner.model, OAFACTORY_SCOPE: wo.scope.paths.join(':') },
       });
       gateway.revoke(id);
       store.updateRun(id, { ended_at: now().toISOString() });
