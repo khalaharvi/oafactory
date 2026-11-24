@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { exec, type ExecResult } from './exec.js';
+import { exec, shell, type ExecResult } from './exec.js';
 
 export interface SandboxExec { cwd: string; env: Record<string, string>; timeoutMs?: number }
 
@@ -44,7 +44,7 @@ export class LocalSandbox implements Sandbox {
   toolPath(hostDir: string, file: string): string { return join(hostDir, file); }
   async exec(command: string, opts: SandboxExec): Promise<ExecResult> {
     const home = mkdtempSync(join(tmpdir(), 'oafactory-home-'));
-    return exec('sh', ['-c', command], { cwd: opts.cwd, env: { ...workerEnv(opts.env), HOME: home }, timeoutMs: opts.timeoutMs, group: true });
+    return shell(command, { cwd: opts.cwd, env: { ...workerEnv(opts.env), HOME: home }, timeoutMs: opts.timeoutMs, group: true });
   }
 }
 
