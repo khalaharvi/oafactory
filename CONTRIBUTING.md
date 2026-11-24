@@ -66,10 +66,13 @@ Keep a branch to one change. If `main` moves, rebase onto it rather than merging
 | `web` | A production build of the site and docs |
 | `conventional` | The pull request title follows Conventional Commits |
 
-The protection rules are recorded in [`.github/branch-protection.json`](.github/branch-protection.json). A maintainer with admin rights applies them with:
+A CodeQL scan also runs on every pull request, and the ruleset blocks a merge that would introduce an error-level finding.
+
+The rules that protect `main` are a repository ruleset, kept in [`.github/rulesets/main.json`](.github/rulesets/main.json) so they can be reviewed like any other change. GitHub does not read that file by itself: after it changes, a maintainer with admin rights applies it, either with **Settings → Rules → Rulesets → Import a ruleset** or with:
 
 ```bash
-gh api -X PUT repos/khalaharvi/oafactory/branches/main/protection --input .github/branch-protection.json
+id=$(gh api repos/khalaharvi/oafactory/rulesets --jq '.[] | select(.name == "main") | .id')
+gh api -X PUT "repos/khalaharvi/oafactory/rulesets/$id" --input .github/rulesets/main.json
 ```
 
 ### What we look for in review
@@ -127,13 +130,13 @@ Agent-written pull requests are welcome, and held to the same standard as any ot
 
 OAFactory follows [Semantic Versioning](https://semver.org). While the version is below 1.0 and the API is `v1alpha1`, a minor release may break the config, the receipt format or the CLI; the changelog will say so.
 
-Maintainers release by:
+A release is a pull request like any other:
 
-1. Moving the `Unreleased` entries in `CHANGELOG.md` under a new version heading with the date.
-2. Setting the same version in `packages/oafactory/package.json`, `packages/oafactory/src/cli.ts` and `apps/web/lib/site.ts`.
-3. Committing as `chore(release): vX.Y.Z` and pushing a `vX.Y.Z` tag.
+1. Move the `Unreleased` entries in `CHANGELOG.md` under a new version heading with the date.
+2. Set the same version in `packages/oafactory/package.json`, `packages/oafactory/src/cli.ts` and `apps/web/lib/site.ts`.
+3. Title it `chore(release): vX.Y.Z` and merge it when CI is green.
 
-The tag starts the release workflow, which runs the tests and publishes a GitHub release with that version's changelog entry.
+When it lands on `main`, the release workflow sees a version that has no tag yet, runs the tests, and creates the `vX.Y.Z` tag and the GitHub release with that version's changelog entry. Nobody pushes tags by hand.
 
 ## Licence
 
