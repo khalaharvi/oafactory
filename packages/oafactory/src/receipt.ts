@@ -123,10 +123,17 @@ export class SigstoreSigner implements Signer {
   }
 }
 
-export function renderReceiptComment(st: Statement, signed?: SignedReceipt): string {
+/**
+ * `required` is the evidence the change's tier asks for. Evidence outside it is
+ * shown as extra information, so a low-risk change is not presented as failing
+ * checks it never needed.
+ */
+export function renderReceiptComment(st: Statement, signed?: SignedReceipt, required?: readonly string[]): string {
   const p = st.predicate;
   const icon = { merge: 'merge', would_merge: 'would merge', escalate: 'escalate', abandon: 'abandoned' }[p.decision.value];
-  const rows = p.evidence.map((e) => `| \`${e.kind}\` | ${e.met ? 'met' : '**not met**'} | ${e.source} |`).join('\n');
+  const needed = (kind: string) => !required || required.includes(kind);
+  const result = (e: Evidence) => (e.met ? 'met' : needed(e.kind) ? '**not met**' : 'not met');
+  const rows = p.evidence.map((e) => `| \`${e.kind}\` | ${needed(e.kind) ? 'yes' : 'no'} | ${result(e)} | ${e.source} |`).join('\n');
   return [
     `### OAFactory receipt \`${p.id}\``,
     '',
@@ -134,7 +141,7 @@ export function renderReceiptComment(st: Statement, signed?: SignedReceipt): str
     '',
     `**Tier ${p.tier.value}**: ${p.tier.because.slice(0, 5).join('; ')}${p.tier.because.length > 5 ? '; ...' : ''}`,
     '',
-    '| Evidence | Result | Source |', '|---|---|---|', rows || '| (none collected) | | |',
+    `| Evidence | Required at tier ${p.tier.value} | Result | Source |`, '|---|---|---|---|', rows || '| (none collected) | | | |',
     '',
     p.unverified.length ? `**Not verified:**\n${p.unverified.map((u) => `- ${u}`).join('\n')}` : '**Not verified:** nothing recorded.',
     '',

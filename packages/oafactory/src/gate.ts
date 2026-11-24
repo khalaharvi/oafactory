@@ -203,7 +203,7 @@ async function evaluate(deps: GateDeps, number: number, opts: GateOptions): Prom
   }
 
   if (opts.comment !== false) {
-    try { await host.comment(number, renderReceiptComment(statement, signed)); } catch { /* a failed comment never changes the decision */ }
+    try { await host.comment(number, renderReceiptComment(statement, signed, required)); } catch { /* a failed comment never changes the decision */ }
   }
   return { statement, signed, decision: decision.value, merged, mergeSha };
 }

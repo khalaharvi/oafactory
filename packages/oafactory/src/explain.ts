@@ -109,7 +109,11 @@ function evidenceNote(e: Evidence): string {
     const failed = Object.entries(d).filter(([, v]) => v !== 'success').map(([k, v]) => `${k}: ${String(v)}`);
     if (failed.length) return ` (${list(failed)})`;
   }
-  if (typeof d.reason === 'string' && !e.met) return ` (${d.reason})`;
+  if (typeof d.reason === 'string' && !e.met) {
+    // Reasons can quote tool errors at length. Keep the first clause; the full text is on the receipt.
+    const short = d.reason.split(/[:;]/)[0]!.trim();
+    return ` (${short.length > 110 ? `${short.slice(0, 110)}...` : short})`;
+  }
   return '';
 }
 
