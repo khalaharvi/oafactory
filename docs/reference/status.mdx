@@ -27,10 +27,10 @@ All eight steps of the spec's build order:
 | Receipt signing with a local key (DSSE, Ed25519) | Covered by the test suite |
 | Gateway: run keys, budgets, metering, egress allowlist | Covered by the test suite, against a stub provider |
 | Harness: credential hygiene, pristine commits, base-branch instruction files, budgets, attempts | Covered by the test suite, with real git and a local sandbox |
-| **GitHub adapter** | Reading a pull request, its files, checks, commits and the base-branch config has been run against live GitHub, and the test-report artifact is found for the right commits. **Not yet run live**: downloading and parsing a real report, commenting, opening a change, rerunning a check and merging |
+| GitHub adapter | Run against live GitHub for a complete work order: clone, push a branch, open a pull request, read real CI checks, comment, and read the result back for the Watcher. **Not yet run live**: downloading and parsing a test report (the lookup works; the download was blocked by the test environment's network), rerunning a failed check, opening a revert, and a merge performed by the Gate itself |
 | **GitLab adapter** | Written against the REST API documentation. **Not yet run against any GitLab instance** |
 | Docker sandbox | Run for real: the live probes pass in a `node:22-slim` container on an internal network, and a complete work order ran inside it with the built-in Runner. Verified on one Linux host with Docker 29; check yours with `oafactory conformance --live` |
-| Built-in Runner | Covered by the test suite and run in a container, against a scripted stand-in for the model. **No real model has driven it yet** |
+| Built-in Runner | Covered by the test suite, and run in `node:22-slim` and `node:26-slim` containers for a complete work order against this project's own repository, with a scripted stand-in for the model. **No real model has driven it yet** |
 | **Sigstore signing** | Calls the `sigstore` package's attest function. **Not exercised**: it needs live Fulcio and Rekor |
 | **Third-party agent command lines** | Starting points only. **No real agent has been run through them** |
 | **Real model providers** | The Gateway's request and usage handling follows the published API shapes. **No request has been sent to a real provider** |
