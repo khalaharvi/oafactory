@@ -7,3 +7,6 @@ out/
 *.db-shm
 .vercel
 .DS_Store
+report/
+*.tsbuildinfo
+next-env.d.ts
