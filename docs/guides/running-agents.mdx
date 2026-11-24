@@ -46,7 +46,7 @@ Keep this file and the keys it names outside every repository. See the [Gateway 
 | `docker` (default) | A container on an internal Docker network. Its only route out is the Gateway, which allows HTTPS to an allowlist of package registries. | Real work |
 | `local` | None. A child process with a scrubbed environment and a throwaway home directory. | Developing your setup with trusted tasks |
 
-The default image is `node:22-slim`, which is all the built-in Runner needs. When the work needs your project's toolchain (Python, a compiler, your test runner), supply an image that has it, plus Node if you use the built-in Runner:
+The default image is `node:26-slim`, which is all the built-in Runner needs. When the work needs your project's toolchain (Python, a compiler, your test runner), supply an image that has it, plus Node if you use the built-in Runner:
 
 ```bash
 export OAFACTORY_SANDBOX_IMAGE=ghcr.io/you/factory-sandbox:latest
@@ -56,6 +56,17 @@ oafactory conformance --live --sandbox docker
 The live probes run inside your real Sandbox. They check that the Gateway is reachable, that a request to a host off the allowlist is refused, that the internet cannot be reached directly, that no Git host credential is present, and that no provider key or role token is readable. They need Node in the image.
 
 The container runs as your user, with every capability dropped, on a Docker network created with `--internal`. Its only route out is the Gateway.
+
+### What newer Node versions add
+
+OAFactory itself runs on Node 22.13 or later. Inside the Sandbox it uses newer Node features when the image has them:
+
+| Sandbox Node | What changes |
+|---|---|
+| 24 and later | `fetch` and `http` in Node programs honour the proxy settings, so they reach allowlisted hosts through the Gateway |
+| 26 and later | The built-in Runner starts under Node's permission model. Its own file access is limited to the project directory and the directory it was loaded from |
+
+The permission model is a second layer under the path checks in the agent's file tools. It does not confine the commands the agent runs, such as your test suite: those are confined by the Sandbox. Node's network permission is still marked experimental in Node 26.
 
 ## 3. Pick a Runner
 

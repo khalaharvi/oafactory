@@ -64,7 +64,7 @@ Status 127 means the command was not found. The agent named in `roles.runner.use
 
 ### The agent cannot find `git`, `python` or another tool
 
-The default image, `node:22-slim`, contains Node and very little else. It has no `git`, no compiler and no Python. The built-in Runner does not need them, but your project's tests might. Build an image with your toolchain and pass it with `--image` or `OAFACTORY_SANDBOX_IMAGE`.
+The default image, `node:26-slim`, contains Node and very little else. It has no `git`, no compiler and no Python. The built-in Runner does not need them, but your project's tests might. Build an image with your toolchain and pass it with `--image` or `OAFACTORY_SANDBOX_IMAGE`.
 
 ### "Run reached its budget"
 
