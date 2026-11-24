@@ -11,6 +11,7 @@ export * from './gate.js';
 export * from './watcher.js';
 export * from './scoreboard.js';
 export * from './explain.js';
+export * from './workorders.js';
 export * from './gateway.js';
 export * from './sandbox.js';
 export * from './instructions.js';

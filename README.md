@@ -119,6 +119,16 @@ Where things stand today
 
 These explanations are built from fixed wording and the facts of the run. No AI writes them. → [A work order, in plain words](docs/work-orders-explained.mdx)
 
+## Use it from Claude
+
+OAFactory ships an MCP server, so you can write work orders in conversation with Claude or any other MCP client. Say what you want done; the assistant drafts the work order, shows you in plain words what would happen, and saves it.
+
+```bash
+claude mcp add oafactory -- node /path/to/oafactory/packages/mcp/dist/bin.js
+```
+
+By default the assistant can draft and save but not start work: you start a run yourself. → [Use it from Claude (MCP)](docs/guides/mcp.mdx)
+
 ## Use it on your repository
 
 ```bash
@@ -140,7 +150,7 @@ oafactory run "Fix the crash when the config file is empty" --scope src/,tests/
 | Start here | Concepts | Guides | Reference |
 |---|---|---|---|
 | [In plain words](docs/work-orders-explained.mdx) | [How it works](docs/concepts/how-it-works.mdx) | [Shadow mode on GitHub](docs/guides/shadow-mode-github.mdx) | [CLI](docs/reference/cli.mdx) |
-| [Quickstart](docs/quickstart.mdx) | [Tiers](docs/concepts/tiers.mdx) | [Running agents](docs/guides/running-agents.mdx) | [Factory config](docs/reference/factory-config.mdx) |
+| [Quickstart](docs/quickstart.mdx) | [Tiers](docs/concepts/tiers.mdx) | [Running agents](docs/guides/running-agents.mdx) · [From Claude (MCP)](docs/guides/mcp.mdx) | [Factory config](docs/reference/factory-config.mdx) |
 | [Free and open](docs/free-and-open.mdx) | [Evidence](docs/concepts/evidence.mdx) | [Earned mode](docs/guides/earned-mode.mdx) | [Conformance](docs/reference/conformance.mdx) |
 | [Specification](spec/oafactory-spec-v0.1.md) | [Standing](docs/concepts/standing.mdx) · [Receipts](docs/concepts/receipts.mdx) | | [Status and limits](docs/reference/status.mdx) |
 
@@ -152,6 +162,7 @@ oafactory run "Fix the crash when the config file is empty" --scope src/,tests/
 |---|---|
 | `packages/oafactory/` | The CLI and library (TypeScript). Two runtime dependencies: `yaml` and `zod` |
 | `packages/oafactory/test/` | Unit tests and the conformance suite, named after the spec's IDs (C1.1 to C3.8) |
+| `packages/mcp/` | The MCP server, `oafactory-mcp`, on version 2 of the MCP SDK |
 | `apps/web/` | Marketing site and docs site (Next.js), deployable to Vercel |
 | `docs/` | Documentation as MDX. Rendered by `apps/web` at `/docs`, and ready for Mintlify (`docs/docs.json`) |
 | `spec/` | The specification this implements |

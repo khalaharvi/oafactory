@@ -23,6 +23,7 @@ jobs:
       - run: npm ci
       - run: npx vitest run --reporter=default --reporter=junit --outputFile.junit=report/junit.xml
         working-directory: packages/oafactory
+      - run: npm test -w oafactory-mcp
       # The Gate reads this artifact, for the base and the head commit, to produce test_integrity evidence.
       - uses: actions/upload-artifact@v4
         if: always()

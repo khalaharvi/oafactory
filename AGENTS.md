@@ -25,6 +25,7 @@ Run one test file: `npx vitest run test/core.test.ts` from `packages/oafactory`.
 |---|---|
 | `packages/oafactory/src/` | The CLI and library |
 | `packages/oafactory/test/` | Tests. `conformance-*.test.ts` are named after spec IDs (C1.1 to C3.8) |
+| `packages/mcp/` | The MCP server (`oafactory-mcp`), on the v2 MCP SDK. A thin layer over the library; its tests are append-only too |
 | `apps/web/` | Next.js site. Renders `docs/` at `/docs` |
 | `docs/` | MDX documentation. Navigation is `docs/docs.json` |
 | `spec/oafactory-spec-v0.1.md` | The specification. The source of truth for behaviour |

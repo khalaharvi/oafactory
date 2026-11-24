@@ -6,6 +6,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
+- An MCP server, `oafactory-mcp`, built on version 2 of the MCP TypeScript SDK. From Claude or any other MCP client you can read a project's factory rules, draft a work order and see in plain words what it would do, save it, and follow its result. Starting a run from the assistant is off unless the server is given `--allow-run`.
+- `oafactory explain <work-order.yaml>` now ends with notes worth knowing before the run, such as a scope that allows code changes but not the tests they need.
 - `oafactory explain <work-order.yaml>` and `oafactory explain <receipt-id>`: what will happen, or what happened, in plain words for people who are not engineers. Built from fixed wording, with no model involved.
 - `oafactory run "<what you want done>"`: start a run from a sentence, without writing a work order file. The run prints its plain-language explanation before it starts.
 - Docs: "A work order, in plain words" and "Free and open", and matching sections on the site.

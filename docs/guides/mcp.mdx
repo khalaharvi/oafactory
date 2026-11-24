@@ -1,0 +1,107 @@
+---
+title: Use it from Claude (MCP)
+description: Connect OAFactory to Claude or any other MCP client, so you can write, check and follow work orders in conversation.
+---
+
+OAFactory includes an MCP server, `oafactory-mcp`. Once it is connected, you can say what you want done in your own words, and your assistant turns it into a work order, shows you in plain language what would happen, and saves it for the factory to run.
+
+It is built on version 2 of the MCP TypeScript SDK and speaks MCP over stdio, so it works with Claude Code, Claude Desktop and other MCP clients.
+
+<Note>
+The server is tested by driving it with the official MCP client over stdio. It has not yet been tried inside Claude Desktop or Claude Code by this project. The npm package is not published yet, so the commands below use a path into a checkout.
+</Note>
+
+## What it can do
+
+| Tool | What it does | Changes anything? |
+|---|---|---|
+| `factory_overview` | Reads the project's rules: mode, budget ceilings, risk levels by folder, required checks, standing | No |
+| `draft_work_order` | Checks a request and explains what would happen if it ran | No |
+| `save_work_order` | Saves a work order, outside the repository | Writes one file |
+| `list_work_orders` | Lists work orders and what happened to each | No |
+| `get_run` | Explains the result of a work order in plain words | No |
+| `explain_receipt` | Explains one receipt in plain words | No |
+| `run_work_order` | Starts a saved work order | **Yes: starts work that spends money.** Off unless you pass `--allow-run` |
+
+## Set it up
+
+Build the project once:
+
+```bash
+git clone https://github.com/khalaharvi/oafactory
+cd oafactory
+npm install
+npm run build
+```
+
+### Claude Code
+
+From the root of the repository you want the factory to work on:
+
+```bash
+claude mcp add oafactory -- node /path/to/oafactory/packages/mcp/dist/bin.js
+```
+
+### Claude Desktop and other clients
+
+Add a stdio server to the client's MCP configuration. For Claude Desktop that is `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "oafactory": {
+      "command": "node",
+      "args": [
+        "/path/to/oafactory/packages/mcp/dist/bin.js",
+        "--cwd", "/path/to/your/repository"
+      ]
+    }
+  }
+}
+```
+
+### Options
+
+| Option | Meaning | Default |
+|---|---|---|
+| `--cwd <dir>` | The repository the factory works on | The directory the server starts in |
+| `--repo <owner/name>` | The repository's name on the Git host | Read from the `origin` remote |
+| `--ledger <path>` | The Ledger file | `$OAFACTORY_LEDGER`, else `~/.oafactory/ledger.db` |
+| `--allow-run` | Also offer `run_work_order` | Off |
+
+The repository needs a factory config first: run `oafactory init` in it.
+
+## A conversation
+
+> **You:** I want the crash on empty config files fixed. Keep it to the source and test folders, and don't spend more than a dollar.
+>
+> **Claude** calls `factory_overview`, then `draft_work_order`, and shows you:
+>
+> *Where the AI may make changes: only in src/, tests/. What it may spend: up to $1.00 and 30 minutes per attempt. This project is in shadow mode: the factory never accepts a change on its own...*
+>
+> **You:** Looks right. Save it.
+>
+> **Claude** calls `save_work_order` and tells you the command that starts it.
+
+Later you can ask "what happened to that work order?" and the assistant calls `get_run`.
+
+## Who starts the work
+
+By default the server cannot start a run. It saves the work order and gives you a command to run yourself:
+
+```bash
+oafactory run ~/.oafactory/work-orders/owner_name/wo-20261124-101500.yaml
+```
+
+This is deliberate. Starting a run spends money and opens a proposed change on your project, and an assistant that has been reading untrusted text, such as an issue or a web page, could be talked into starting work you did not ask for.
+
+If you want the assistant to start runs, add `--allow-run`. Your MCP client will still ask you to approve each call unless you have told it not to. Either way, the limits hold:
+
+- A work order can lower the project's budget ceilings, never raise them.
+- The agent can only change files inside the work order's scope.
+- The Gate decides what is accepted, by the same rules as for any other change. Nothing in this server can approve or merge.
+- In shadow mode, a person makes every final decision.
+
+## What gets recorded
+
+A work order saved through MCP names you as the requester, with "(via MCP)" added, taken from your git user name. Saved work orders live outside the repository, next to the Ledger, under `~/.oafactory/work-orders/`. Set `OAFACTORY_WORK_ORDERS` to move them.

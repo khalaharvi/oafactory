@@ -34,6 +34,7 @@
         "pages": [
           "guides/shadow-mode-github",
           "guides/running-agents",
+          "guides/mcp",
           "guides/earned-mode",
           "guides/troubleshooting"
         ]
