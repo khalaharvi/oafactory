@@ -138,22 +138,32 @@ export class GitHubHost implements Host {
     }
   }
 
+  // Writes go through the REST API rather than `gh pr ...`, which needs GraphQL.
+  // REST works with fine-grained tokens and in environments where GraphQL is not reachable.
+  private post<T>(method: 'POST' | 'PUT', path: string, body: unknown): Promise<T> {
+    return this.gh(['api', '-X', method, path, '--input', '-'], JSON.stringify(body)).then((out) => JSON.parse(out) as T);
+  }
+
   async comment(number: number, body: string): Promise<void> {
-    await this.gh(['pr', 'comment', String(number), '-R', this.repo, '--body-file', '-'], body);
+    await this.post('POST', `repos/${this.repo}/issues/${number}/comments`, { body });
   }
 
   async openChange(input: { head: string; base: string; title: string; body: string }): Promise<number> {
-    const out = await this.gh(['pr', 'create', '-R', this.repo, '--head', input.head, '--base', input.base, '--title', input.title, '--body-file', '-'], input.body);
-    const m = /\/pull\/(\d+)/.exec(out);
-    if (!m) throw new Error(`could not read the change number from: ${out.trim()}`);
-    return Number(m[1]);
+    const pr = await this.post<{ number: number }>('POST', `repos/${this.repo}/pulls`, input);
+    return pr.number;
   }
 
   async merge(number: number, sha: string): Promise<MergeResult> {
-    const r = await exec('gh', ['pr', 'merge', String(number), '-R', this.repo, `--${this.opts.mergeMethod ?? 'squash'}`, '--match-head-commit', sha], { env: this.opts.env });
-    if (r.code !== 0) return { merged: false, reason: r.stderr.trim() || r.stdout.trim() };
-    const c = await this.getChange(number);
-    return c.state === 'merged' ? { merged: true, sha: c.mergeSha } : { merged: false, reason: 'merge was accepted but the change is not merged (merge queue or auto-merge?)' };
+    // `sha` makes GitHub refuse the merge unless the head is still the commit that was evaluated.
+    const r = await exec('gh', ['api', '-X', 'PUT', `repos/${this.repo}/pulls/${number}/merge`, '--input', '-'],
+      { env: this.opts.env, input: JSON.stringify({ sha, merge_method: this.opts.mergeMethod ?? 'squash' }) });
+    if (r.code !== 0) {
+      let reason = r.stderr.trim() || r.stdout.trim();
+      try { reason = (JSON.parse(r.stdout) as { message?: string }).message ?? reason; } catch { /* not JSON */ }
+      return { merged: false, reason };
+    }
+    const res = JSON.parse(r.stdout) as { merged?: boolean; sha?: string; message?: string };
+    return res.merged ? { merged: true, sha: res.sha } : { merged: false, reason: res.message ?? 'the host did not merge the change' };
   }
 
   async getCommit(sha: string): Promise<CommitInfo> {
