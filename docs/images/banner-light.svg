@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" role="img" aria-label="OAFactory: an open software factory. Agents write the code. Evidence decides what merges.">
+  <rect width="1200" height="420" rx="18" fill="#faf7f2"/>
+  <g transform="translate(64 78)" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="2.6">
+    <path d="M0 30V12l10 7v-7l10 7V2h10v28Z" stroke="#1c1917"/><path d="M8 30v-5M16 30v-5M24 30v-5" stroke="#a84a08"/>
+  </g>
+  <text x="108" y="104" font-family="ui-sans-serif,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" font-weight="700" fill="#1c1917">OAFactory</text>
+  <text x="64" y="158" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" letter-spacing="1.6" fill="#a84a08">AN OPEN SOFTWARE FACTORY</text>
+  <text font-family="'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif" font-size="50" font-weight="600" fill="#1c1917" letter-spacing="-0.8"><tspan x="62" y="222">Agents write the code.</tspan><tspan x="62" y="282">Evidence decides what merges.</tspan></text>
+  <text x="64" y="330" font-family="ui-sans-serif,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="19" fill="#655c51">A deterministic Gate, earned autonomy, and a receipt for every run.</text>
+  <g transform="rotate(1.6 980 210)">
+    <rect x="812" y="36" width="336" height="352" fill="#fffdf8" stroke="#e2d9cb"/>
+    <circle cx="826" cy="388" r="5" fill="#faf7f2"/><circle cx="838" cy="388" r="5" fill="#faf7f2"/><circle cx="850" cy="388" r="5" fill="#faf7f2"/><circle cx="862" cy="388" r="5" fill="#faf7f2"/><circle cx="874" cy="388" r="5" fill="#faf7f2"/><circle cx="886" cy="388" r="5" fill="#faf7f2"/><circle cx="898" cy="388" r="5" fill="#faf7f2"/><circle cx="910" cy="388" r="5" fill="#faf7f2"/><circle cx="922" cy="388" r="5" fill="#faf7f2"/><circle cx="934" cy="388" r="5" fill="#faf7f2"/><circle cx="946" cy="388" r="5" fill="#faf7f2"/><circle cx="958" cy="388" r="5" fill="#faf7f2"/><circle cx="970" cy="388" r="5" fill="#faf7f2"/><circle cx="982" cy="388" r="5" fill="#faf7f2"/><circle cx="994" cy="388" r="5" fill="#faf7f2"/><circle cx="1006" cy="388" r="5" fill="#faf7f2"/><circle cx="1018" cy="388" r="5" fill="#faf7f2"/><circle cx="1030" cy="388" r="5" fill="#faf7f2"/><circle cx="1042" cy="388" r="5" fill="#faf7f2"/><circle cx="1054" cy="388" r="5" fill="#faf7f2"/><circle cx="1066" cy="388" r="5" fill="#faf7f2"/><circle cx="1078" cy="388" r="5" fill="#faf7f2"/><circle cx="1090" cy="388" r="5" fill="#faf7f2"/><circle cx="1102" cy="388" r="5" fill="#faf7f2"/><circle cx="1114" cy="388" r="5" fill="#faf7f2"/><circle cx="1126" cy="388" r="5" fill="#faf7f2"/><circle cx="1138" cy="388" r="5" fill="#faf7f2"/>
+    <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" fill="#1c1917">
+      <text x="832" y="68" font-weight="700" letter-spacing="0.8">OAFACTORY RECEIPT</text><text x="1128" y="68" text-anchor="end" font-weight="700">0042-1</text>
+      <text x="832" y="88" fill="#655c51">acme/widgets #431</text><text x="1128" y="88" text-anchor="end" fill="#655c51">9f2c41ab77e0</text>
+      <line x1="832" y1="104" x2="1128" y2="104" stroke="#655c51" stroke-dasharray="4 4" opacity="0.6"/>
+      <text x="832" y="130" font-weight="700" letter-spacing="0.8">TIER 1</text>
+      <text x="840" y="149" fill="#655c51">src/config.py matched src/**</text>
+      <text x="832" y="177" font-weight="700" letter-spacing="0.8">EVIDENCE</text>
+      <text x="840" y="197">checks</text><text x="958" y="197" fill="#2d6a3a" font-weight="700">met</text><text x="990" y="197" fill="#655c51" font-size="11.5">lint, test passed</text><text x="840" y="216">budget</text><text x="958" y="216" fill="#2d6a3a" font-weight="700">met</text><text x="990" y="216" fill="#655c51" font-size="11.5">$0.84 of $1.00</text><text x="840" y="235">test_integrity</text><text x="958" y="235" fill="#2d6a3a" font-weight="700">met</text><text x="990" y="235" fill="#655c51" font-size="11.5">412 → 413 tests</text><text x="840" y="254">new_test</text><text x="958" y="254" fill="#2d6a3a" font-weight="700">met</text><text x="990" y="254" fill="#655c51" font-size="11.5">tests/test_empty.py</text><text x="840" y="273">review</text><text x="958" y="273" fill="#2d6a3a" font-weight="700">met</text><text x="990" y="273" fill="#655c51" font-size="11.5">different model family</text>
+      <text x="832" y="302" font-weight="700" letter-spacing="0.8">NOT VERIFIED</text>
+      <text x="840" y="321" fill="#655c51" font-size="11.5">No integration run exercised this change.</text>
+      <line x1="832" y1="336" x2="1128" y2="336" stroke="#655c51" stroke-dasharray="4 4" opacity="0.6"/>
+      <text x="832" y="360" font-weight="700" font-size="14">Decision</text><text x="1128" y="360" text-anchor="end" font-weight="700" font-size="14" fill="#8a6100">WOULD MERGE</text>
+    </g>
+  </g>
+</svg>

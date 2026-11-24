@@ -1,0 +1,46 @@
+---
+title: Free and open
+description: Nothing in OAFactory is locked behind a paid tier. What is free, what you still pay others for, and what the project will not do.
+---
+
+OAFactory is open source under the Apache 2.0 licence, and there is one edition of it. Every feature in these docs is in the code you can download.
+
+## What that means
+
+- **No paid tier, no enterprise edition.** Shadow mode, earned mode, receipts, signing, the Watcher, the scoreboard and the conformance suite are all in the open-source package.
+- **No account and no sign-up.** It is a command-line tool that runs on your machine or your own servers.
+- **No telemetry.** OAFactory sends nothing to its authors. The only network calls it makes are to your Git host, your AI provider and, if you use it, Sigstore.
+- **Your records stay with you.** The Ledger is a file you own. `oafactory ledger export` writes every record as plain JSON Lines.
+- **No lock-in to a model or an agent.** Any agent that runs from a command line works. Any provider with an Anthropic-style or OpenAI-style API works.
+
+## What you still pay other people for
+
+OAFactory does not remove these costs. It limits the first one.
+
+| Cost | Paid to | Notes |
+|---|---|---|
+| AI usage | Your AI provider | This is the money the work order's budget caps. You enter your own prices in the Gateway config |
+| A machine to run on | Yourself, or a cloud provider | A laptop is enough to try it. The Gate needs a disk that persists between runs |
+| Your Git host | GitHub or GitLab | See below |
+
+## Features of your Git host
+
+OAFactory is built so that it never needs a paid plan from your Git host:
+
+- It reads checks, opens changes and merges with the ordinary `gh` and `glab` command-line tools.
+- Receipt signing uses [Sigstore](https://www.sigstore.dev), a free public service, and does not depend on any Git host feature.
+- Test reports are ordinary CI artifacts.
+
+One thing is outside its control. The specification asks you to keep **branch protection** switched on, as a last line of defence in case OAFactory itself has a defect. Whether branch protection is free depends on your Git host and on whether the repository is public or private; public repositories on GitHub have it at no cost. Check your host's current plans. OAFactory works without it, but you lose that safety net.
+
+## What the project will not do
+
+- Move an existing feature behind payment.
+- Require an account to use the software.
+- Add tracking.
+
+If a hosted service is ever offered, it will be a convenience for people who would rather not run the software themselves. It will not be the only way to get a feature.
+
+## Check for yourself
+
+The package has two runtime dependencies, `yaml` and `zod`. The [source](https://github.com/khalaharvi/oafactory) and the [specification](https://github.com/khalaharvi/oafactory/blob/main/spec/oafactory-spec-v0.1.md) are public, and [Status and limits](/reference/status) lists what has and has not been verified.

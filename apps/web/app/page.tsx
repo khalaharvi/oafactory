@@ -57,6 +57,15 @@ function Receipt() {
   );
 }
 
+const PLAIN = [
+  ['You write a request', 'What you want done, which folders the AI may touch, and how much it may spend.'],
+  ['An AI does the work', 'On a private copy. It cannot publish or approve its own work, and never sees a password or key.'],
+  ['The change is published as a proposal', 'Anyone on the team can read exactly what changed. Nothing is accepted yet.'],
+  ['A second AI gives an opinion', 'From a different maker. A second opinion, never the deciding one.'],
+  ['The Gate decides', 'A fixed set of rules, not an AI. Small, low-risk changes may be accepted. Everything else goes to a person.'],
+  ['You get a receipt', 'What was checked, what could not be confirmed, what it cost, and why.'],
+];
+
 const code = (s: string) => s.split('`').map((part, i) => (i % 2 ? <code key={i}>{part}</code> : part));
 
 export default function Home() {
@@ -91,6 +100,18 @@ export default function Home() {
       </section>
 
       <section className="wrap section">
+        <p className="eyebrow">In plain words</p>
+        <h2>What happens when you hand over a work order</h2>
+        <p className="section-lede">You do not need an engineering background to follow a request from start to finish, or to read the result.</p>
+        <ol className="plain">
+          {PLAIN.map(([title, text]) => (<li key={title}><h3>{title}</h3><p>{text}</p></li>))}
+        </ol>
+        <pre className="cmd"><code><span className="prompt">$</span> oafactory explain work-order.yaml<span className="comment">   # this, for your own request and rules</span></code></pre>
+        <p className="more"><Link href="/docs/work-orders-explained">A work order, in plain words</Link></p>
+      </section>
+
+      <section className="band">
+        <div className="wrap">
         <p className="eyebrow">How a change moves</p>
         <h2>Six roles, three credentials, one direction</h2>
         <p className="section-lede">Each role may do a few things and is denied the rest. The Harness, the Gate and the Watcher each hold a separate Git credential, and none of the three ever enters the Sandbox.</p>
@@ -105,10 +126,10 @@ export default function Home() {
           ))}
         </ol>
         <p className="more"><Link href="/docs/concepts/how-it-works">Roles and trust boundaries</Link></p>
+        </div>
       </section>
 
-      <section className="band">
-        <div className="wrap">
+      <section className="wrap section">
           <p className="eyebrow">Tiers</p>
           <h2>Four risk tiers, set by what a change touches</h2>
           <div className="tiers">
@@ -122,10 +143,10 @@ export default function Home() {
             ))}
           </div>
           <p className="more"><Link href="/docs/concepts/tiers">How classification works</Link> · <Link href="/docs/concepts/evidence">What counts as evidence</Link></p>
-        </div>
       </section>
 
-      <section className="wrap section split">
+      <section className="band">
+      <div className="wrap split">
         <div>
           <p className="eyebrow">Built for an agent that wants to pass</p>
           <h2>The shortcuts are the escalations</h2>
@@ -140,10 +161,10 @@ export default function Home() {
             </li>
           ))}
         </ul>
+      </div>
       </section>
 
-      <section className="band">
-        <div className="wrap">
+      <section className="wrap section">
           <p className="eyebrow">Standing</p>
           <h2>From shadow mode to merging, and back</h2>
           <ol className="ladder">
@@ -153,6 +174,18 @@ export default function Home() {
             <li><h3>Demote</h3><p>One revert removes standing at that tier and every tier above. It returns only through promotion.</p></li>
           </ol>
           <p className="more"><Link href="/docs/concepts/standing">How standing is earned and lost</Link></p>
+      </section>
+
+      <section className="band">
+        <div className="wrap">
+          <p className="eyebrow">Free and open</p>
+          <h2>One edition. Nothing behind a paid tier.</h2>
+          <div className="three">
+            <div><h3>Every feature is in the open-source package</h3><p>Shadow mode, earned mode, signed receipts, the Watcher and the conformance suite. Apache 2.0, with no enterprise edition.</p></div>
+            <div><h3>No account, no telemetry</h3><p>A command-line tool that runs on your machine. It talks to your Git host and your AI provider, and to nobody else.</p></div>
+            <div><h3>Bring any agent and any model</h3><p>If it runs from a command line, it works. You pay your AI provider directly, and the work order's budget caps it.</p></div>
+          </div>
+          <p className="more"><Link href="/docs/free-and-open">What is free, and what you still pay others for</Link></p>
         </div>
       </section>
 
@@ -166,7 +199,7 @@ export default function Home() {
         <ul className="limits">
           <li><b>Passing checks is not correctness.</b> Published studies find roughly half of test-passing agent patches would be rejected by maintainers.</li>
           <li><b>Model review is weak evidence.</b> Reviewers miss most planted defects, and different models share blind spots.</li>
-          <li><b>Not yet run against live GitHub or GitLab.</b> The host adapters, the Docker sandbox and Sigstore signing are written and unit-tested, not field-tested.</li>
+          <li><b>Not yet field-tested end to end.</b> Reading from live GitHub works. Merging through the adapter, GitLab, the Docker sandbox and Sigstore signing are written and unit-tested, not yet run for real.</li>
           <li><b>No one has published outcome data</b> for merging without human review. Start in shadow mode and stay there until your own numbers say otherwise.</li>
         </ul>
       </section>

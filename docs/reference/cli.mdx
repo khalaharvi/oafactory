@@ -15,7 +15,10 @@ oafactory <command> [options]
 | `init [--force]` | Write `.oafactory/factory.yaml` from what is in the repository |
 | `ready [--json]` | Check that the factory config protects what it must. Exit code 1 on any failure |
 | `classify [--base <ref>] [--scope <paths>]` | Show the tier of local changes against a base ref (default `origin/HEAD`) |
-| `run <work-order.yaml>` | Run a work order: agent, change, review, Gate |
+| `explain <work-order.yaml>` | What will happen if this work order runs, in plain words |
+| `explain <receipt-id>` | What happened in a run, in plain words |
+| `run "<what you want done>" [--scope <paths>]` | Run a request written as a sentence: agent, change, review, Gate |
+| `run <work-order.yaml>` | The same, from a work order file |
 | `run --issue <n> [--scope <paths>]` | The same, from an issue a maintainer labelled `oafactory` |
 | `gate <change> [--wait <minutes>] [--no-comment]` | Evaluate one change and write its receipt |
 | `watch [--every <minutes>] [--merge-reverts]` | Watch merged changes; rerun, revert and record outcomes |

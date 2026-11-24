@@ -118,6 +118,22 @@ oafactory run work-order.yaml
 
 A work order may lower the config's budget ceilings. It can never raise them.
 
+Before the run starts, the Harness prints what is about to happen in plain words. You can get the same explanation without running anything:
+
+```bash
+oafactory explain work-order.yaml
+```
+
+### From a sentence
+
+For a quick request you can skip the file:
+
+```bash
+oafactory run "Fix the crash when the config file is empty" --scope src/,tests/
+```
+
+The Harness writes the work order for you, with an id based on the time, your git user name as the requester and the config's full budget. Scope comes from `--scope`, never from the sentence, and defaults to the whole repository, where protected paths still escalate.
+
 ### From an issue
 
 ```bash
