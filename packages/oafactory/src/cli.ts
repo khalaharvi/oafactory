@@ -4,9 +4,10 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { classify } from './classify.js';
-import { CONFIG_PATH, parseFactoryConfig, parseGatewayConfig, parseWorkOrder } from './config.js';
+import { API_VERSION, CONFIG_PATH, parseFactoryConfig, parseGatewayConfig, parseWorkOrder } from './config.js';
 import { demo } from './demo.js';
 import { run as sh } from './exec.js';
+import { explainReceipt, explainWorkOrder } from './explain.js';
 import { Gateway } from './gateway.js';
 import { gate, type GateDeps } from './gate.js';
 import { runWorkOrder, workOrderFromIssue } from './harness.js';
@@ -19,7 +20,7 @@ import { LocalKeySigner, SigstoreSigner, verifyEnvelope, type Signer } from './r
 import { DockerSandbox, LocalSandbox, SANDBOX_NETWORK, ensureNetwork, type Sandbox } from './sandbox.js';
 import { scoreboard } from './scoreboard.js';
 import { hasStanding, promote, promotionStatus } from './standing.js';
-import type { ChangedFile, Tier } from './types.js';
+import type { ChangedFile, Tier, WorkOrder } from './types.js';
 import { watch } from './watcher.js';
 import { GitTransport } from './workspace.js';
 
@@ -37,8 +38,13 @@ Set up a repository
   ready [--json]               Check that the factory config protects what it must
   classify [--base <ref>]      Show the tier of your local changes against a base ref
 
+Understand it
+  explain <work-order.yaml>    What will happen if this work order runs, in plain words
+  explain <receipt-id>         What happened in a run, in plain words
+
 Operate the factory
-  run <work-order.yaml>        Run a work order: sandboxed agent, change, review, Gate
+  run "<what you want done>"   Run a request: sandboxed agent, change, review, Gate
+  run <work-order.yaml>        Same, from a work order file
   run --issue <n>              Same, from an issue a maintainer labelled "oafactory"
   gate <change>                Evaluate one change and write its receipt
   watch [--every <minutes>]    Watch merged changes; rerun, revert and record outcomes
@@ -164,6 +170,13 @@ async function makeSandbox(flags: Flags): Promise<{ sandbox: Sandbox; listenHost
   return { sandbox: new DockerSandbox({ image, network }), listenHost: await ensureNetwork(network) };
 }
 
+/** Turn a plain sentence into a work order. Scope comes from --scope, never from the sentence. */
+export async function workOrderFromIntent(intent: string, scope: string[] | undefined, now = new Date()): Promise<WorkOrder> {
+  const who = (await sh('git', ['config', 'user.name'], { cwd: process.cwd() }).catch(() => '')).trim() || process.env.USER || 'unknown';
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+  return { apiVersion: API_VERSION, kind: 'WorkOrder', id: `wo-${stamp}`, requested_by: who, intent: intent.trim(), scope: { paths: scope ?? ['*'] } };
+}
+
 const commands: Record<string, (args: string[], flags: Flags) => Promise<number>> = {
   async demo() { await demo(out, !!tty); return 0; },
 
@@ -198,6 +211,31 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
     return 0;
   },
 
+  async explain(args, flags) {
+    const target = args[0];
+    if (!target) throw new Error('usage: oafactory explain <work-order.yaml> | <receipt-id>');
+    if (existsSync(resolve(target))) {
+      const wo = parseWorkOrder(await readFile(resolve(target), 'utf8'));
+      const cfgPath = join(process.cwd(), CONFIG_PATH);
+      if (!existsSync(cfgPath)) throw new Error(`${CONFIG_PATH} not found here; run this from the repository root, after \`oafactory init\``);
+      const config = parseFactoryConfig(await readFile(cfgPath, 'utf8'));
+      // Standing is looked up when the repository can be identified; otherwise the explanation assumes none.
+      let standing: Tier[] = [];
+      try {
+        const host = await hostFor(flags, 'GATE');
+        const { ledger } = stores(flags);
+        standing = ([0, 1] as Tier[]).filter((t) => hasStanding(ledger, host.repo, t));
+      } catch { /* no remote or no ledger yet */ }
+      out(explainWorkOrder(config, wo, { standing }));
+      return 0;
+    }
+    const { ledger } = stores(flags);
+    const rec = ledger.receipt(target);
+    if (!rec) throw new Error(`"${target}" is neither a work order file nor a receipt in the Ledger`);
+    out(explainReceipt(rec.record.statement, ledger.outcome(target)?.record));
+    return 0;
+  },
+
   async gate(args, flags) {
     const number = Number(args[0]);
     if (!Number.isInteger(number)) throw new Error('usage: oafactory gate <change number>');
@@ -226,9 +264,15 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
     const config = parseFactoryConfig(cfgText);
     for (const p of checkCredentials(process.env, config.autonomy.mode)) err(`warning: ${p}. Fine for shadow mode on your own machine; required before earned mode.`);
 
-    const wo = flags.issue
-      ? workOrderFromIssue(await harnessHost.getIssue(Number(flags.issue)), harnessHost.kind, typeof flags.scope === 'string' ? flags.scope.split(',') : undefined)
-      : args[0] ? parseWorkOrder(await readFile(resolve(args[0]), 'utf8')) : (() => { throw new Error('usage: oafactory run <work-order.yaml> | --issue <n>'); })();
+    const scope = typeof flags.scope === 'string' ? flags.scope.split(',') : undefined;
+    let wo: WorkOrder;
+    if (flags.issue) wo = workOrderFromIssue(await harnessHost.getIssue(Number(flags.issue)), harnessHost.kind, scope);
+    else if (args[0] && existsSync(resolve(args[0]))) wo = parseWorkOrder(await readFile(resolve(args[0]), 'utf8'));
+    else if (args.length && /\s/.test(args.join(' ').trim())) wo = await workOrderFromIntent(args.join(' '), scope);
+    else throw new Error('usage: oafactory run "<what you want done>" | <work-order.yaml> | --issue <n>');
+    const standing = ([0, 1] as Tier[]).filter((t) => hasStanding(ledger, harnessHost.repo, t));
+    err(explainWorkOrder(config, wo, { standing }));
+    err('');
 
     const gateway = await loadGateway(flags, store);
     const { sandbox, listenHost } = await makeSandbox(flags);
