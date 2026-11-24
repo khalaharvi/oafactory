@@ -4,7 +4,7 @@ kind: Factory
 
 protected: [.oafactory/, .github/, "*package.json", package-lock.json, "*tsconfig.json", "*tsconfig.build.json", "*vitest.config.ts", "*next.config.mjs", vercel.json, spec/, LICENSE,
             "*AGENTS.md", "*CLAUDE.md", "*GEMINI.md", "*.cursorrules", "*.cursor/rules/*", "*.claude/*", "*.github/copilot-instructions.md"]
-append_only: [packages/oafactory/test/]
+append_only: [packages/oafactory/test/, packages/mcp/test/]
 
 checks:
   required: [typecheck, test, web]
@@ -20,7 +20,7 @@ tiers:
   default: 2
   rules:
     - { paths: ["docs/**", "*.md"], tier: 0 }
-    - { paths: ["packages/oafactory/src/**", "packages/oafactory/test/**", "apps/web/**"], tier: 1 }
+    - { paths: ["packages/oafactory/src/**", "packages/oafactory/test/**", "packages/mcp/src/**", "packages/mcp/test/**", "apps/web/**"], tier: 1 }
     # The Gate, the Ledger and receipt signing decide what merges: changes to them always go to a person.
     - { paths: ["packages/oafactory/src/gate.ts", "packages/oafactory/src/classify.ts", "packages/oafactory/src/evidence.ts", "packages/oafactory/src/standing.ts",
                 "packages/oafactory/src/ledger.ts", "packages/oafactory/src/receipt.ts", "packages/oafactory/src/paths.ts", "packages/oafactory/src/config.ts"], tier: 3 }

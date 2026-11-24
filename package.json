@@ -3,9 +3,9 @@
   "private": true,
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
-    "build": "npm run build -w oafactory",
-    "test": "npm test -w oafactory",
-    "typecheck": "npm run typecheck -w oafactory",
+    "build": "npm run build -w oafactory && npm run build -w oafactory-mcp",
+    "test": "npm test -w oafactory && npm test -w oafactory-mcp",
+    "typecheck": "npm run build -w oafactory && npm run typecheck -w oafactory && npm run typecheck -w oafactory-mcp",
     "web": "npm run dev -w web",
     "docs": "cd docs && npx mint dev"
   },
