@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Contributions now go through feature branches and pull requests that merge automatically when CI is green; `main` is protected.
+
 ## [0.1.0] - 2026-11-24
 
 The first release. It implements all eight build steps of specification v0.1, draft revision 2.

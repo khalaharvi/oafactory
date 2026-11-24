@@ -71,6 +71,8 @@ This repository gates itself with `.oafactory/factory.yaml`. Changes to these ar
 
 ## Commits and pull requests
 
+- Never commit to `main` and never push to it. Create a feature branch named `type/short-description` (for example `fix/gate-head-moved`) from the latest `main`, and open a pull request. It is squash-merged automatically once the `typecheck`, `test`, `web` and `conventional` checks are green.
+- One change per branch. Rebase onto `main` if it moves; do not merge `main` into your branch.
 - [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`. Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`. Scopes: `gate`, `ledger`, `harness`, `gateway`, `host`, `cli`, `web`, `docs`, `spec`.
 - A breaking change to the config, receipt format or CLI gets `!` after the type and a `BREAKING CHANGE:` footer.
 - Add a line under `## [Unreleased]` in `CHANGELOG.md` for anything a user would notice.
