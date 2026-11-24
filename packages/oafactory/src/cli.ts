@@ -4,7 +4,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { classify } from './classify.js';
-import { API_VERSION, CONFIG_PATH, parseFactoryConfig, parseGatewayConfig, parseWorkOrder } from './config.js';
+import { CONFIG_PATH, parseFactoryConfig, parseGatewayConfig, parseWorkOrder } from './config.js';
 import { demo } from './demo.js';
 import { run as sh } from './exec.js';
 import { explainReceipt, explainWorkOrder } from './explain.js';
@@ -22,6 +22,7 @@ import { scoreboard } from './scoreboard.js';
 import { hasStanding, promote, promotionStatus } from './standing.js';
 import type { ChangedFile, Tier, WorkOrder } from './types.js';
 import { watch } from './watcher.js';
+import { newWorkOrder, workOrderNotes } from './workorders.js';
 import { GitTransport } from './workspace.js';
 
 export const VERSION = '0.1.0';
@@ -174,8 +175,7 @@ async function makeSandbox(flags: Flags): Promise<{ sandbox: Sandbox; listenHost
 /** Turn a plain sentence into a work order. Scope comes from --scope, never from the sentence. */
 export async function workOrderFromIntent(intent: string, scope: string[] | undefined, now = new Date()): Promise<WorkOrder> {
   const who = (await sh('git', ['config', 'user.name'], { cwd: process.cwd() }).catch(() => '')).trim() || process.env.USER || 'unknown';
-  const stamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-  return { apiVersion: API_VERSION, kind: 'WorkOrder', id: `wo-${stamp}`, requested_by: who, intent: intent.trim(), scope: { paths: scope ?? ['*'] } };
+  return newWorkOrder({ intent, requestedBy: who, scope, now });
 }
 
 const commands: Record<string, (args: string[], flags: Flags) => Promise<number>> = {
@@ -228,6 +228,8 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
         standing = ([0, 1] as Tier[]).filter((t) => hasStanding(ledger, host.repo, t));
       } catch { /* no remote or no ledger yet */ }
       out(explainWorkOrder(config, wo, { standing }));
+      const notes = workOrderNotes(config, wo);
+      if (notes.length) out(`\nWorth knowing before it runs\n${notes.map((n) => `  - ${n}`).join('\n')}`);
       return 0;
     }
     const { ledger } = stores(flags);
