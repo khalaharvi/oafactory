@@ -1,0 +1,13 @@
+{
+  "name": "oafactory-monorepo",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "build": "npm run build -w oafactory",
+    "test": "npm test -w oafactory",
+    "typecheck": "npm run typecheck -w oafactory",
+    "web": "npm run dev -w web",
+    "docs": "cd docs && npx mint dev"
+  },
+  "engines": { "node": ">=22.13" }
+}

@@ -1,0 +1,26 @@
+# Add this to the CI job that runs your tests. The Gate downloads the artifact for the
+# base commit and the head commit and compares them to produce `test_integrity` evidence.
+# The artifact must be named exactly `oafactory-test-report` and contain JUnit XML.
+#
+#   pytest:   pytest --junitxml=report/junit.xml
+#   vitest:   vitest run --reporter=default --reporter=junit --outputFile.junit=report/junit.xml
+#   jest:     jest --reporters=default --reporters=jest-junit   (JEST_JUNIT_OUTPUT_DIR=report)
+#   go:       go test ./... -v 2>&1 | go-junit-report > report/junit.xml
+#
+# The workflow must also run on pushes to the default branch, so a report exists for the base commit.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pytest --junitxml=report/junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oafactory-test-report
+          path: report/

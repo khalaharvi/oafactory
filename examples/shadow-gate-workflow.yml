@@ -1,0 +1,25 @@
+# Runs the Gate in shadow mode on a machine you control, after CI finishes on a pull request.
+# It must be a self-hosted runner (or any box with a persistent disk): the Ledger is a SQLite
+# file that has to live outside the repository and survive between runs.
+#
+# Keep this workflow on the default branch only. `workflow_run` always uses the default
+# branch's copy of the file, so a pull request cannot change what the Gate runs.
+name: OAFactory Gate
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+jobs:
+  gate:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: [self-hosted, oafactory-gate]
+    steps:
+      - name: Gate each pull request for this commit
+        env:
+          OAFACTORY_GATE_TOKEN: ${{ secrets.OAFACTORY_GATE_TOKEN }}
+          OAFACTORY_LEDGER: /var/lib/oafactory/ledger.db
+          PRS: ${{ toJson(github.event.workflow_run.pull_requests.*.number) }}
+        run: |
+          for n in $(echo "$PRS" | tr -d '[],'); do
+            oafactory gate "$n" --repo "$GITHUB_REPOSITORY"
+          done

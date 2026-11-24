@@ -1,0 +1,20 @@
+{
+  "name": "oafactory",
+  "version": "0.1.0",
+  "description": "An open software factory: agents write changes, a deterministic Gate decides what merges, and every run leaves a receipt.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "oafactory": "dist/bin.js" },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": { "node": ">=22.13" },
+  "dependencies": { "yaml": "^2.6.0", "zod": "^3.23.8" },
+  "devDependencies": { "@types/node": "^22.10.0", "typescript": "^5.7.0", "vitest": "^3.0.0" }
+}

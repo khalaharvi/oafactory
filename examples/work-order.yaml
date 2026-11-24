@@ -1,0 +1,8 @@
+apiVersion: oafactory/v1alpha1
+kind: WorkOrder
+id: "0042"
+source: { host: github, issue: 412 }
+requested_by: krishna
+intent: Fix the crash when the config file is empty.
+scope: { paths: [src/, tests/] }
+budget: { usd_per_run: 1.00 }

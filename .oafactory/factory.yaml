@@ -1,0 +1,38 @@
+# OAFactory gates its own repository with this file. The Gate reads it from the base branch only.
+apiVersion: oafactory/v1alpha1
+kind: Factory
+
+protected: [.oafactory/, .github/, "*package.json", package-lock.json, "*tsconfig.json", "*tsconfig.build.json", "*vitest.config.ts", "*next.config.mjs", vercel.json, spec/, LICENSE,
+            "*AGENTS.md", "*CLAUDE.md", "*GEMINI.md", "*.cursorrules", "*.cursor/rules/*", "*.claude/*", "*.github/copilot-instructions.md"]
+append_only: [packages/oafactory/test/]
+
+checks:
+  required: [typecheck, test, web]
+  holdout: []
+
+budget: { usd_per_run: 2.50, minutes_per_run: 30, max_attempts: 2 }
+
+roles:
+  runner:   { use: mini-swe-agent, model: oafactory/coder }
+  reviewer: { use: builtin, model: oafactory/reviewer }
+
+tiers:
+  default: 2
+  rules:
+    - { paths: ["docs/**", "*.md"], tier: 0 }
+    - { paths: ["packages/oafactory/src/**", "packages/oafactory/test/**", "apps/web/**"], tier: 1 }
+    # The Gate, the Ledger and receipt signing decide what merges: changes to them always go to a person.
+    - { paths: ["packages/oafactory/src/gate.ts", "packages/oafactory/src/classify.ts", "packages/oafactory/src/evidence.ts", "packages/oafactory/src/standing.ts",
+                "packages/oafactory/src/ledger.ts", "packages/oafactory/src/receipt.ts", "packages/oafactory/src/paths.ts", "packages/oafactory/src/config.ts"], tier: 3 }
+  limits:
+    0: { max_lines: 200, max_files: 10 }
+    1: { max_lines: 150, max_files: 5 }
+
+autonomy:
+  mode: shadow
+  promote:
+    0: { after_held: 20, min_agreement: 0.95, max_reverts: 0 }
+    1: { after_held: 50, min_agreement: 0.95, max_reverts: 0 }
+  audit_rate: 0.10
+
+watch: { window_hours: 168 }
