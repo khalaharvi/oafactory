@@ -17,6 +17,7 @@ export * from './instructions.js';
 export * from './workspace.js';
 export * from './reviewer.js';
 export * from './harness.js';
+export * from './agent.js';
 export * from './ready.js';
 export * from './init.js';
 export * from './probes.js';
