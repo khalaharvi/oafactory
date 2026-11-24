@@ -31,6 +31,17 @@ jobs:
           name: oafactory-test-report
           path: packages/oafactory/report/junit.xml
 
+  # The supported minimum is Node 22. This job runs the same tests on the newest release line,
+  # whose features the Harness uses inside the Sandbox. It is not a required check.
+  test-node-26:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 26, cache: npm }
+      - run: npm ci
+      - run: npm test
+
   web:
     runs-on: ubuntu-latest
     steps:
