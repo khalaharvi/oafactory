@@ -12,6 +12,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - A built-in Runner (`roles.runner.use: builtin`): OAFactory's own small coding agent, with file and command tools, for Anthropic-style and OpenAI-style APIs. It needs only Node in the Sandbox image, so `node:22-slim` is now the default image and `oafactory init` selects it.
 
+- Docs: a troubleshooting guide, written from the first run of the factory against its own repository.
+
 ### Changed
 
 - The GitHub adapter opens changes, comments and merges through the REST API, so it no longer needs GraphQL access. Merges are pinned with the API's `sha` parameter.
