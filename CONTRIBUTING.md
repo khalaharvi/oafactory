@@ -35,11 +35,42 @@ npm test
 
 ## Making a change
 
-1. Fork the repository and create a branch from `main`.
+`main` is protected. Nothing is pushed to it directly, by anyone: every change arrives through a pull request, and merges only when CI is green.
+
+1. Fork the repository (maintainers can branch in place) and create a feature branch from the latest `main`. Name it `type/short-description`, using the same types as commit messages:
+
+   ```bash
+   git switch main && git pull
+   git switch -c fix/gate-head-moved
+   ```
+
 2. Make the change, with tests. A behaviour change without a test will be sent back.
 3. Run `npm test` and `npm run typecheck`. If you touched `apps/web` or `docs`, run `npm run build -w web` too.
 4. Add a line to `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) if a user would notice the change.
-5. Open a pull request and fill in the template.
+5. Commit using [Conventional Commits](#commit-messages), push the branch and open a pull request. Fill in the template.
+6. Turn on auto-merge. The pull request is squash-merged as soon as every required check passes, and the branch is deleted:
+
+   ```bash
+   gh pr create --fill
+   gh pr merge --auto --squash
+   ```
+
+Keep a branch to one change. If `main` moves, rebase onto it rather than merging it in; history on `main` is linear.
+
+### Required checks
+
+| Check | What it runs |
+|---|---|
+| `typecheck` | `npm run typecheck` |
+| `test` | The full test suite, including the conformance suite |
+| `web` | A production build of the site and docs |
+| `conventional` | The pull request title follows Conventional Commits |
+
+The protection rules are recorded in [`.github/branch-protection.json`](.github/branch-protection.json). A maintainer with admin rights applies them with:
+
+```bash
+gh api -X PUT repos/khalaharvi/oafactory/branches/main/protection --input .github/branch-protection.json
+```
 
 ### What we look for in review
 
