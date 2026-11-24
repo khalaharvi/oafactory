@@ -14,7 +14,16 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - Docs: a troubleshooting guide, written from the first run of the factory against its own repository.
 
+### Fixed
+
+- A test report that cannot be downloaded no longer stops the Gate. It is recorded as missing `test_integrity` evidence with the cause, and the change is still decided and given a receipt. Found by running the factory against its own repository.
+- When the Gate fails after a change has been opened, the run stays recorded and the error says how to resume with `oafactory gate <change>`.
+- Command errors are shortened and drop URL query strings, which can carry signed URLs.
+- Piping output into a command that exits early, such as `head`, no longer prints a stack trace.
+
 ### Changed
+
+- The receipt comment on a change, and `oafactory explain`, say which evidence the change's tier requires, so a low-risk change is not shown as failing checks it never needed.
 
 - The GitHub adapter opens changes, comments and merges through the REST API, so it no longer needs GraphQL access. Merges are pinned with the API's `sha` parameter.
 - `oafactory conformance --live` needs only Node in the image, and C1.1 now includes a positive control: the Gateway must be reachable, so a Sandbox with no network at all cannot pass by accident.

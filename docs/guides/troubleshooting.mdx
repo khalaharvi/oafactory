@@ -21,6 +21,16 @@ The Gate compares a test report for the base commit with one for the head commit
 
 Tier 0 changes do not need this evidence. Tier 1 changes always do.
 
+The same message appears when the report exists but the Gate cannot download it. GitHub serves artifacts from a separate storage host, so a firewall or proxy that allows `api.github.com` may still block the download. The receipt records the cause under the `test_integrity` evidence; `oafactory ledger show <receipt-id>` prints it in full.
+
+### The Gate stopped with an error after the change was opened
+
+The run is still recorded and is waiting for its decision. Nothing is lost. Fix the cause the message names, then run the Gate on that change:
+
+```bash
+oafactory gate 431
+```
+
 ### A check is reported as "missing"
 
 `checks.required` must contain the exact names of your CI jobs. The Gate matches them literally. `oafactory ready` warns when it cannot find a job with that name in your workflow files.
@@ -51,6 +61,10 @@ If your branch rules require review threads to be resolved, comments left by a c
 ### "Runner exited with status 127"
 
 Status 127 means the command was not found. The agent named in `roles.runner.use` is not installed in the Sandbox image. Either build an image that contains it, or use `use: builtin`, which needs only Node.
+
+### The agent cannot find `git`, `python` or another tool
+
+The default image, `node:22-slim`, contains Node and very little else. It has no `git`, no compiler and no Python. The built-in Runner does not need them, but your project's tests might. Build an image with your toolchain and pass it with `--image` or `OAFACTORY_SANDBOX_IMAGE`.
 
 ### "Run reached its budget"
 
