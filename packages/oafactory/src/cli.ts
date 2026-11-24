@@ -26,7 +26,7 @@ import { newWorkOrder, workOrderNotes } from './workorders.js';
 import { GitTransport } from './workspace.js';
 
 export const VERSION = '0.1.0';
-export const DEFAULT_SANDBOX_IMAGE = 'node:22-slim';
+export const DEFAULT_SANDBOX_IMAGE = 'node:26-slim';
 
 const HELP = `oafactory ${VERSION}: an open software factory
 

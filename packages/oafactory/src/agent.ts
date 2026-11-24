@@ -72,9 +72,21 @@ async function listFiles(root: string, dir: string, out: string[] = []): Promise
   return out;
 }
 
+/**
+ * The command line actually given to the shell. Under Node's permission model,
+ * Node passes its restrictions to every child through NODE_OPTIONS, which would
+ * stop npm, test runners and any other Node program from reading their own
+ * files. The restrictions are meant for this agent's file tools, not for the
+ * project's commands, which the Sandbox confines. So the shell drops them.
+ */
+export function shellLine(command: string, underPermissionModel: boolean): string {
+  return underPermissionModel ? `unset NODE_OPTIONS; ${command}` : command;
+}
+
 function runCommand(command: string, cwd: string): Promise<string> {
   return new Promise((res) => {
-    const child = spawn('sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const restricted = (process as { permission?: unknown }).permission !== undefined;
+    const child = spawn('sh', ['-c', shellLine(command, restricted)], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { out += d; });
