@@ -4,6 +4,17 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- `oafactory explain <work-order.yaml>` and `oafactory explain <receipt-id>`: what will happen, or what happened, in plain words for people who are not engineers. Built from fixed wording, with no model involved.
+- `oafactory run "<what you want done>"`: start a run from a sentence, without writing a work order file. The run prints its plain-language explanation before it starts.
+- Docs: "A work order, in plain words" and "Free and open", and matching sections on the site.
+
+### Changed
+
+- The README now leads with a banner, a capture of the demo and a flow diagram.
+- Status page: the GitHub adapter's read paths have been run against live GitHub.
+
 ## [0.1.0] - 2026-11-24
 
 The first release. It implements all eight build steps of specification v0.1, draft revision 2.
