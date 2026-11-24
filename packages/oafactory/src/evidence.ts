@@ -103,8 +103,16 @@ export async function collectEvidence(input: CollectInput, opts: CollectOptions 
     evidence.push({ kind: 'budget', met: false, source: 'gateway', detail: { reason: 'no factory run is recorded for this change' } });
   }
 
-  const [baseReport, headReport] = await Promise.all([host.getTestReport(baseSha), host.getTestReport(headSha)]);
-  if (baseReport && headReport) {
+  // A report that cannot be fetched is missing evidence, not a reason to stop: the Gate must still decide and write a receipt.
+  const reportErrors: string[] = [];
+  const report = (sha: string, which: string) => host.getTestReport(sha).catch((e: unknown) => {
+    reportErrors.push(`the ${which} commit's test report could not be read: ${String((e as Error).message).slice(0, 160)}`);
+    return null;
+  });
+  const [baseReport, headReport] = await Promise.all([report(baseSha, 'base'), report(headSha, 'head')]);
+  if (reportErrors.length) {
+    evidence.push({ kind: 'test_integrity', met: false, source: `${src}:test-report`, detail: { reason: reportErrors.join('; ') } });
+  } else if (baseReport && headReport) {
     const r = compareReports(baseReport, headReport);
     evidence.push({ kind: 'test_integrity', met: r.met, source: `${src}:test-report`, detail: { base: r.base, head: r.head, newly_skipped: r.newly_skipped.length, ...(r.newly_skipped.length ? { skipped: r.newly_skipped.slice(0, 20) } : {}) } });
   } else {

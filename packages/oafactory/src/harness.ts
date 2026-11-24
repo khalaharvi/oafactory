@@ -176,7 +176,13 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
         gateway.revoke(id);
       }
 
-      const result = await gate(deps.gate, number, deps.gateOptions);
+      let result: GateResult;
+      try {
+        result = await gate(deps.gate, number, deps.gateOptions);
+      } catch (e) {
+        // The change is open and the run is recorded; only the decision is missing. It can be made later.
+        throw new Error(`the Gate could not evaluate change #${number} (${(e as Error).message}). Run ${id} is still waiting: once the cause is fixed, run \`oafactory gate ${number}\`.`);
+      }
       results.push({ run: store.getRun(id)!, change: number, gate: result });
       log(`run ${id}: ${result.decision}. ${result.statement.predicate.decision.reason}`);
       if (result.decision !== 'escalate') break;

@@ -36,6 +36,10 @@ export function shell(command: string, opts: ExecOptions = {}): Promise<ExecResu
 
 export async function run(cmd: string, args: string[], opts: ExecOptions = {}): Promise<string> {
   const r = await exec(cmd, args, opts);
-  if (r.code !== 0) throw new Error(`${cmd} ${args.slice(0, 4).join(' ')} failed (${r.code}): ${r.stderr.trim() || r.stdout.trim()}`);
+  if (r.code !== 0) {
+    // Keep errors short: tool output can run to thousands of characters and may carry signed URLs.
+    const detail = (r.stderr.trim() || r.stdout.trim()).split('?')[0]!.slice(0, 300);
+    throw new Error(`${cmd} ${args.slice(0, 4).map((a) => a.split('?')[0]!.slice(0, 80)).join(' ')} failed (${r.code}): ${detail}`);
+  }
   return r.stdout;
 }

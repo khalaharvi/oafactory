@@ -7,5 +7,8 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
   (emit as (...a: unknown[]) => void)(warning, ...rest);
 }) as typeof process.emitWarning;
 
+// `oafactory scoreboard | head` closes the pipe early; that is not an error worth a stack trace.
+process.stdout.on('error', (e: NodeJS.ErrnoException) => { if (e.code === 'EPIPE') process.exit(0); else throw e; });
+
 const { main } = await import('./cli.js');
 process.exitCode = await main(process.argv.slice(2));
