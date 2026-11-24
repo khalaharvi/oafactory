@@ -1,0 +1,78 @@
+---
+title: Factory config
+description: Every field of .oafactory/factory.yaml.
+---
+
+Location: `.oafactory/factory.yaml`. The Gate reads it from the **base branch**, never from the change under evaluation. Unknown fields are rejected.
+
+```yaml
+apiVersion: oafactory/v1alpha1
+kind: Factory
+
+protected: [.oafactory/, .github/, .gitlab-ci.yml, "*Makefile", "*AGENTS.md", "*CLAUDE.md"]
+append_only: [tests/]
+
+checks:
+  required: [lint, test]
+  holdout: []
+
+budget: { usd_per_run: 2.50, minutes_per_run: 30, max_attempts: 2 }
+
+roles:
+  runner:   { use: mini-swe-agent, model: oafactory/coder }
+  reviewer: { use: builtin, model: oafactory/reviewer }
+
+tiers:
+  default: 2
+  rules:
+    - { paths: ["docs/**", "*.md"], tier: 0 }
+    - { paths: ["src/**", "tests/**"], tier: 1 }
+    - { paths: ["install/**"], tier: 3 }
+  limits:
+    0: { max_lines: 200, max_files: 10 }
+    1: { max_lines: 150, max_files: 5 }
+
+autonomy:
+  mode: shadow
+  promote:
+    0: { after_held: 20, min_agreement: 0.95, max_reverts: 0 }
+    1: { after_held: 50, min_agreement: 0.95, max_reverts: 0 }
+  audit_rate: 0.10
+
+watch: { window_hours: 168 }
+```
+
+## Fields
+
+| Field | Required | Meaning |
+|---|---|---|
+| `protected` | yes | Paths where any change is Tier 3 |
+| `append_only` | no | Paths where new files are allowed but modifying or deleting an existing file is Tier 3 |
+| `checks.required` | yes | Check names that must pass on the head commit |
+| `checks.holdout` | no | Check names whose definitions live outside the repository |
+| `checks.behavior` | no | Check names that count as `behavior` evidence. An addition to the spec |
+| `budget.usd_per_run` | yes | Spend ceiling per run |
+| `budget.minutes_per_run` | yes | Time ceiling per run |
+| `budget.max_attempts` | yes | Attempts per work order |
+| `roles.runner`, `roles.reviewer` | yes | `use` (the adapter) and `model` (a Gateway alias). `command` when `use: command`. An addition to the spec |
+| `tiers.default` | yes | Tier for files no rule matches |
+| `tiers.rules` | no | `paths` and the `tier` they receive. The highest matching tier wins |
+| `tiers.limits` | no | `max_lines` and `max_files` for Tiers 0 and 1 |
+| `autonomy.mode` | yes | `shadow` or `earned` |
+| `autonomy.promote` | no | Thresholds per tier. Defaults as shown; provisional |
+| `autonomy.audit_rate` | no | Share of would-merge changes sent to a person anyway. Default 0.10; provisional |
+| `watch.window_hours` | no | Watch period after merge. Default 168; provisional |
+
+`alpha` in the API version means fields can change without notice.
+
+## Rules the config must satisfy
+
+`oafactory ready` checks these against your repository:
+
+- `protected` covers the factory config, the CI configuration, every script the required checks run through, and every instruction file.
+- Test files are covered by `protected` or `append_only`.
+- The required checks run the repository's full test suite. This one cannot be checked automatically.
+- New files under `append_only` paths can reach Tier 1.
+- The Runner and Reviewer use different model aliases.
+
+See [Tiers](/concepts/tiers) for how patterns match.

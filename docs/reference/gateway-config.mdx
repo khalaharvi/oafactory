@@ -1,0 +1,51 @@
+---
+title: Gateway config
+description: Model aliases, provider keys, prices and the egress allowlist.
+---
+
+Location: `~/.oafactory/gateway.yaml`, or the path in `OAFACTORY_GATEWAY_CONFIG`. It belongs outside every repository and outside the Sandbox.
+
+```yaml
+listen: 127.0.0.1:4141
+
+models:
+  oafactory/coder:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    key_env: ANTHROPIC_API_KEY
+    usd_per_mtok: { input: 0, output: 0 }
+  oafactory/reviewer:
+    provider: openai
+    model: your-reviewer-model
+    base_url: https://api.openai.com
+    key_env: OPENAI_API_KEY
+    usd_per_mtok: { input: 0, output: 0 }
+
+egress: [registry.npmjs.org, pypi.org, files.pythonhosted.org]
+```
+
+| Field | Meaning |
+|---|---|
+| `listen` | Address for `gateway serve`. `oafactory run` picks its own port |
+| `models.<alias>.provider` | `anthropic` or `openai`. Any OpenAI-compatible API works with `openai` and a `base_url` |
+| `models.<alias>.model` | The provider's model name. Receipts record `provider/model` |
+| `models.<alias>.family` | Model family for the Runner/Reviewer separation rule. Defaults to the provider. Set it when you reach two families through one provider, or one family through two |
+| `models.<alias>.key_env` | Name of the environment variable that holds the provider key |
+| `models.<alias>.base_url` | Override the provider's API address |
+| `models.<alias>.usd_per_mtok` | Your prices per million input and output tokens |
+| `egress` | Hosts the Sandbox may reach through the Gateway, on port 443 only |
+
+## What the Gateway serves
+
+| Request | Behaviour |
+|---|---|
+| `POST /v1/messages` | Forwarded to an `anthropic` model |
+| `POST /v1/chat/completions` | Forwarded to an `openai` model |
+| `CONNECT host:443` | Tunnelled if the host is on the `egress` list, otherwise refused with 403 |
+| Anything else | Refused |
+
+- A request must carry a run key, as `x-api-key` or a bearer token. Unknown and revoked keys get 401.
+- The `model` in the request must be an alias. The Gateway swaps in the real model and the provider key.
+- Token usage is read from the provider's response, streamed or not, and priced with `usd_per_mtok`. Cached input tokens are counted at the full input price, so the meter never under-counts.
+- Once a run has spent its budget, further requests get 402. The check happens before each request, so a run can overshoot by at most one response. The Harness then abandons the run.
+- Run keys are revoked when the Runner exits.

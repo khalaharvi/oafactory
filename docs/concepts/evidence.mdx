@@ -1,0 +1,52 @@
+---
+title: Evidence
+description: The facts the Gate collects about a change, where each comes from, and what each tier requires.
+---
+
+Evidence is a fact about a change, produced by something other than the Worker. The Gate obtains each kind from its source itself. Statements in the pull request description or in the agent's output are not evidence.
+
+## Kinds
+
+| Kind | Source | Met when |
+|---|---|---|
+| `checks` | Git host CI | Every check in `checks.required` succeeded on the head commit |
+| `budget` | Gateway | Spend and time stayed within the run's ceilings |
+| `test_integrity` | CI test reports | The head ran at least as many tests as the base, and no test that ran on the base is skipped on the head |
+| `new_test` | The diff | The change adds at least one file under an `append_only` path |
+| `holdout` | Git host CI | Every check in `checks.holdout` succeeded |
+| `review` | Reviewer | Verdict is approve, from a fresh context and a different model family than the Runner |
+| `behavior` | A check | An integration or browser run exercised the change |
+
+## The bar per tier
+
+| Tier | Required evidence | Decision when met |
+|---|---|---|
+| 0 | `checks`, `budget` | Merge, if standing allows |
+| 1 | Tier 0, plus `test_integrity`, `new_test`, `review`, and `holdout` when any are configured | Merge, if standing allows |
+| 2 | Tier 1, plus `behavior` | Escalate with the evidence summary |
+| 3 | Same as Tier 2 | Escalate, always |
+
+## Review is weak evidence
+
+Research on model reviewers shows they miss most planted defects and that different models share blind spots. So `review` is supporting evidence: no tier rests on it alone, and it only counts when the Reviewer is a different model family from the Runner. Families come from your [Gateway config](/reference/gateway-config), not from guessing at model names.
+
+## Test integrity
+
+Passing tests mean little if the change quietly ran fewer of them. The Gate compares JUnit reports for the base commit and the head commit.
+
+- On GitHub, your test job uploads an artifact named `oafactory-test-report` containing JUnit XML. See [Shadow mode on GitHub](/guides/shadow-mode-github).
+- On GitLab, the Gate reads the pipeline's built-in test report.
+
+If either report is missing, there is no `test_integrity` evidence and a Tier 1 change escalates.
+
+## Holdout checks
+
+A holdout check is a CI job whose definition lives outside the repository, where the Worker cannot read it. The agent cannot fit its change to tests it cannot see. Configure at least one before seeking Tier 1 standing.
+
+## Flaky checks
+
+A failed required check may be rerun once. A pass after a failure counts, and the receipt records it under `unverified` as a flaky check. The Gate never reruns a check a second time.
+
+## Behavior checks
+
+The spec says `behavior` evidence comes from "a check" without naming a config field for it. This implementation adds `checks.behavior`, a list of check names. With none configured, Tier 2 and 3 changes report `behavior` as missing; they escalate either way.

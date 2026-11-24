@@ -1,0 +1,59 @@
+---
+title: Tiers
+description: How the Gate assigns a risk tier to a change, using only the diff and the base-branch config.
+---
+
+Every change gets a tier from 0 (lowest risk) to 3. The tier decides how much evidence the change needs and whether the Gate may ever merge it.
+
+| Tier | Typical content | What happens when the bar is met |
+|---|---|---|
+| 0 | Documentation | Merge, if the tier has standing |
+| 1 | Source code with a new test | Merge, if the tier has standing |
+| 2 | Anything unclassified, or a change too large for its tier | Escalate to a person, with the evidence summary |
+| 3 | Protected paths: CI, factory config, existing tests, instruction files | Escalate, always |
+
+## The procedure
+
+The Gate computes the tier with this procedure and no other input. It is deterministic and uses no model.
+
+1. List every file the change adds, modifies, deletes or renames. A rename counts under both its old and new path.
+2. Give each file a tier:
+   - Tier 3 if it matches `protected`.
+   - Tier 3 if it matches `append_only` and already exists on the base branch.
+   - Otherwise the **highest** tier among the `tiers.rules` that match it.
+   - Otherwise `tiers.default`.
+3. The change's tier is the highest file tier.
+4. While the change exceeds the `limits` of its tier, raise it by one. Tiers 2 and 3 have no limits.
+5. If the change touches a path outside the work order's `scope.paths`, the decision is escalate, whatever the tier.
+
+Because the highest matching rule wins, the result does not depend on rule order, and adding a rule can only make classification stricter for the files it matches.
+
+## Path patterns
+
+- An entry ending in `/` covers a directory: `tests/` matches `tests/unit/test_a.py`.
+- Any other entry is a glob in which `*` crosses directory separators: `*.md` matches `docs/deep/guide.md`.
+- A leading `/` is ignored.
+- A pattern without `*` matches one exact path: `Makefile` does not match `tools/Makefile`. Use `*Makefile` to cover both.
+
+## Protected and append-only
+
+`protected` must cover:
+
+- the factory config and your CI configuration;
+- every script the required checks run through, such as a `Makefile` or `package.json` that defines the test command;
+- every agent instruction file.
+
+`append_only` is for tests. New test files are welcome; modifying or deleting an existing one is Tier 3. This stops an agent from making a failing test pass by editing the test.
+
+`oafactory ready` checks all of this against the files in your repository.
+
+<Warning>
+Give new files under your append-only paths a Tier 1 rule, for example `{ paths: ["tests/**"], tier: 1 }`. Tier 1 requires a new test. If new test files match no rule they fall to the default tier, usually 2, and no change that adds a test can ever be Tier 1. `oafactory init` writes this rule and `oafactory ready` warns when it is missing.
+</Warning>
+
+## Try it
+
+```bash
+oafactory classify --base origin/main
+oafactory classify --base origin/main --scope src/,tests/
+```

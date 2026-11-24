@@ -1,0 +1,72 @@
+---
+title: CLI
+description: Every oafactory command and option.
+---
+
+```
+oafactory <command> [options]
+```
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `demo` | Walk through the whole lifecycle on an in-memory Git host |
+| `init [--force]` | Write `.oafactory/factory.yaml` from what is in the repository |
+| `ready [--json]` | Check that the factory config protects what it must. Exit code 1 on any failure |
+| `classify [--base <ref>] [--scope <paths>]` | Show the tier of local changes against a base ref (default `origin/HEAD`) |
+| `run <work-order.yaml>` | Run a work order: agent, change, review, Gate |
+| `run --issue <n> [--scope <paths>]` | The same, from an issue a maintainer labelled `oafactory` |
+| `gate <change> [--wait <minutes>] [--no-comment]` | Evaluate one change and write its receipt |
+| `watch [--every <minutes>] [--merge-reverts]` | Watch merged changes; rerun, revert and record outcomes |
+| `standing` | Show standing and promotion progress per tier |
+| `standing --promote <tier> --confirm <name>` | Promote an eligible tier |
+| `scoreboard [--json]` | Accept rate, cost, escalations, agreement and reverts |
+| `ledger export` | Every record as JSON Lines |
+| `ledger show <receipt-id>` | One receipt |
+| `ledger verify <receipt-id> --key <public.pem>` | Verify a local-key signature |
+| `gateway init` | Write an example Gateway config |
+| `gateway serve [--listen <host:port>]` | Run the Gateway on its own |
+| `keys generate [--out <dir>]` | Create a local signing key, for evaluation |
+| `conformance [--live]` | Describe the conformance suite; `--live` probes your Sandbox |
+
+## Common options
+
+| Option | Meaning | Default |
+|---|---|---|
+| `--repo <owner/name>` | The repository to act on | Read from the `origin` remote |
+| `--host <github\|gitlab>` | The Git host | Inferred from the remote |
+| `--ledger <path>` | The Ledger file | `$OAFACTORY_LEDGER`, else `~/.oafactory/ledger.db` |
+| `--json` | Machine-readable output | Off |
+| `--sandbox <docker\|local>` | Where the agent runs | `docker` |
+| `--image <image>` | The Docker sandbox image | `$OAFACTORY_SANDBOX_IMAGE` |
+| `--network <name>` | The internal Docker network | `oafactory-sandbox` |
+| `--signer <sigstore\|local-key>` | How receipts are signed | `$OAFACTORY_SIGNER`, else none |
+| `--gateway-config <path>` | The Gateway config | `$OAFACTORY_GATEWAY_CONFIG`, else `~/.oafactory/gateway.yaml` |
+
+## Environment variables
+
+| Variable | Used for |
+|---|---|
+| `OAFACTORY_HARNESS_TOKEN` | Push the run's branch and open the change |
+| `OAFACTORY_GATE_TOKEN` | Read checks, comment, merge |
+| `OAFACTORY_WATCHER_TOKEN` | Rerun checks, open a revert |
+| `OAFACTORY_LEDGER` | Ledger path |
+| `OAFACTORY_SIGNER`, `OAFACTORY_SIGNING_KEY` | Receipt signing |
+| `OAFACTORY_SANDBOX_IMAGE` | Docker sandbox image |
+| `OAFACTORY_GATEWAY_CONFIG` | Gateway config path |
+| `SIGSTORE_ID_TOKEN` | Identity token for Sigstore outside CI |
+
+When a role token is not set, the command falls back to whatever `gh` or `glab` is signed in as. That is fine for trying shadow mode on your own machine. Earned mode requires all three tokens, and requires them to differ.
+
+## Use as a library
+
+Everything the CLI does is exported from the package:
+
+```ts
+import { classify, parseFactoryConfig, gate, Ledger, Store, openDb, GitHubHost } from 'oafactory';
+
+const db = openDb('/var/lib/oafactory/ledger.db');
+const result = await gate({ host: new GitHubHost('owner/name'), ledger: new Ledger(db), store: new Store(db) }, 431);
+console.log(result.decision, result.statement.predicate.tier.value);
+```

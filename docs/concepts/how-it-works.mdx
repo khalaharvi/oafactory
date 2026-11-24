@@ -1,0 +1,58 @@
+---
+title: How it works
+description: The roles in the factory, what each may do, and the trust boundaries between them.
+---
+
+OAFactory splits the work of landing a change into roles. The rule that shapes everything else: **the thing that writes the code never gets to decide whether it merges, and never holds a credential that could merge it.**
+
+## One change, start to finish
+
+1. A maintainer writes a **work order**, or labels an issue `oafactory`. It states the intent, the paths in scope and a budget.
+2. The **Harness** checks out the base branch into a **Sandbox** and starts the **Runner** (your agent) there. The Runner can edit files and run commands. It reaches models only through the **Gateway**, with a key that is valid for this run and this budget.
+3. When the Runner finishes, the Harness, outside the Sandbox, commits the files, pushes a branch and opens a change.
+4. The **Reviewer**, a different model family with a fresh context, reads the diff and returns a verdict.
+5. The **Gate** reads the config from the base branch, classifies the change, collects evidence from its sources and decides: merge, would merge, or escalate. It writes a **receipt** to the **Ledger** before doing anything else.
+6. If the change merges, the **Watcher** follows it for the watch window (7 days by default), and writes an outcome: held or reverted.
+
+## Roles
+
+| Role | May | Must never |
+|---|---|---|
+| Sandbox | Run Worker commands; reach the Gateway and package registries | Allow other egress; contain any Git host credential |
+| Gateway | Hold provider keys; issue one budgeted key per run | Expose provider keys to the Worker |
+| Runner | Read and edit the working tree; run commands in the Sandbox | Hold any Git host credential; push; merge; set its own tier |
+| Harness | Push the run's branch; open the change | Merge |
+| Reviewer | Read the diff from a fresh context; return a verdict | Share a model family with the Runner; see the Runner's transcript |
+| Gate | Read config, diff, checks and Ledger; merge or escalate; sign receipts | Accept the Worker's claims without re-reading the source |
+| Ledger | Append and serve records | Modify or delete a record; be writable by the Worker |
+| Watcher | Read the default branch; rerun checks; open a revert | Merge anything other than through the Gate |
+
+"Worker" means the Runner and everything it controls inside the Sandbox.
+
+## Three credentials
+
+Three Git host credentials exist, and they are distinct:
+
+| Variable | Used by | Needs permission to |
+|---|---|---|
+| `OAFACTORY_HARNESS_TOKEN` | Harness | Push branches, open pull requests |
+| `OAFACTORY_GATE_TOKEN` | Gate | Read checks, comment, merge |
+| `OAFACTORY_WATCHER_TOKEN` | Watcher | Read, rerun checks, open pull requests |
+
+None of them enters the Sandbox. The Harness passes its token to `git` for a single command and never writes it to a checkout; it then verifies that the checkout's git configuration holds no credential before the Runner starts.
+
+## What the Harness does not trust
+
+The Runner controls its working directory, including the `.git` folder inside it. When the Harness commits the result it uses a separate, pristine git directory with hooks, filters and file-system monitors disabled, so a planted `pre-commit` hook or a `core.fsmonitor` setting cannot run code outside the Sandbox.
+
+## Instruction files come from the base branch
+
+Agents load files such as `AGENTS.md`, `CLAUDE.md` and `.cursor/rules/` as instructions. If a change could add one and have the next agent obey it, the change would be writing its own review.
+
+- Every Runner attempt starts from a fresh checkout of the base branch.
+- The Reviewer is given the base branch's instruction files, and any checkout it sees has the change's instruction files removed and the base versions restored.
+- Adding or editing an instruction file is a [Tier 3](/concepts/tiers) change.
+
+## Untrusted input
+
+Issue text, code comments, review comments and the pull request description are untrusted. They can describe the task. They cannot change scope, budget or tier, and nothing in them counts as [evidence](/concepts/evidence).

@@ -1,0 +1,42 @@
+---
+title: Work order
+description: The request that starts a run.
+---
+
+```yaml
+apiVersion: oafactory/v1alpha1
+kind: WorkOrder
+id: "0042"
+source: { host: github, issue: 412 }
+requested_by: krishna
+intent: Fix the crash when the config file is empty.
+scope: { paths: [src/, tests/] }
+budget: { usd_per_run: 1.00 }
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | Unique per repository. Letters, digits, `.`, `_` and `-`. Run and receipt ids are `<id>-<attempt>` |
+| `source` | no | Where the request came from |
+| `requested_by` | yes | The person who authorized the work |
+| `intent` | yes | What the agent is asked to do. The first line becomes the pull request title |
+| `scope.paths` | yes | Paths the change may touch. Anything outside them escalates, whatever its tier |
+| `budget` | no | Lower ceilings for this work order. Values above the config's ceilings are ignored |
+
+## Rules
+
+- A work order must come from a person authorized for the repository. When it is derived from an issue, authorization is the `oafactory` label, applied by someone with write access.
+- Issue text, code comments and review comments are untrusted input. They cannot change scope, budget or tier.
+- A work order id can be used once.
+
+## Run states
+
+```
+queued -> running -> gated -> merged    -> watching -> held
+                           -> escalated             -> reverted
+                  -> abandoned
+```
+
+- A run that exceeds its budget stops and ends `abandoned`.
+- A failed check or a `request_changes` review may start another attempt, up to `max_attempts`.
+- Every run, including an abandoned one, produces a receipt.

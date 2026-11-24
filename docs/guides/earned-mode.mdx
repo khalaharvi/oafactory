@@ -1,0 +1,60 @@
+---
+title: Earned mode
+description: What has to be true before the Gate merges on its own, and how to run it once it does.
+---
+
+In earned mode the Gate merges changes at tiers that hold standing. Everything else still goes to a person.
+
+<Warning>
+No organization has published outcome data for merging without human review. Passing checks is not correctness: published studies find that roughly half of test-passing agent patches would be rejected by maintainers. Keep Tiers 0 and 1 narrow, and read [Status and limits](/reference/status) first.
+</Warning>
+
+## Checklist
+
+1. **A record in shadow mode.** `oafactory standing` shows the tier as eligible. See [Standing](/concepts/standing).
+2. **Three distinct credentials.** `OAFACTORY_HARNESS_TOKEN`, `OAFACTORY_GATE_TOKEN` and `OAFACTORY_WATCHER_TOKEN` are all set and all different. In earned mode `oafactory run` refuses to start otherwise.
+3. **A signer.** `OAFACTORY_SIGNER=sigstore`. Without a signer the Gate records `would_merge` and does not merge.
+4. **A contained Sandbox.** `oafactory conformance --live --sandbox docker` passes.
+5. **Branch protection stays on**, with code-owner rules on protected paths.
+6. **The Watcher is scheduled.**
+
+## Switch the mode
+
+Change `autonomy.mode` to `earned` in `.oafactory/factory.yaml`. That file is protected, so the change is Tier 3 and a person merges it.
+
+Then confirm the promotion:
+
+```bash
+oafactory standing --promote 0 --confirm "Your Name"
+```
+
+## What the Gate does now
+
+For each change, in order:
+
+1. Load the config from the base branch. Missing or invalid: escalate.
+2. Classify the change.
+3. Collect evidence for the current head commit.
+4. Bar not met: escalate, naming what is missing.
+5. Tier 2 or 3: escalate with the evidence summary.
+6. Shadow mode, or no standing at this tier: record `would_merge` and escalate.
+7. With probability `audit_rate`: record `would_merge`, mark the run as an audit, and escalate.
+8. Otherwise sign and store the receipt, then merge, pinned to the commit that was evaluated.
+
+## Run the Watcher
+
+```bash
+oafactory watch --every 30 --merge-reverts
+```
+
+For each factory-merged change, during the watch window:
+
+- If a required check fails at the merge commit, the Watcher reruns it once. A pass is recorded as a flaky check and nothing else happens.
+- If it fails again, the Watcher opens a revert and writes a `reverted` outcome, which removes standing at that tier and above.
+- With `--merge-reverts`, the Gate merges the revert automatically only if it is the exact inverse of the factory's merge: the tree after the revert equals the tree before the merge. If anything else merged in between, a person reviews the revert.
+
+Only failures at the merge commit trigger an automatic revert. Attributing a later failure to an earlier merge is unsolved and out of scope.
+
+## Getting standing back
+
+Standing returns only through promotion: another full window of would-merge changes that people merge and that hold, then a person's confirmation.

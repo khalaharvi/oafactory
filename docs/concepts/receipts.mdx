@@ -1,0 +1,89 @@
+---
+title: Receipts and the Ledger
+description: The immutable record of every run, how it is signed, and what the Ledger stores.
+---
+
+Every run ends in exactly one receipt, including runs that were abandoned. The receipt says what the factory established and, in the `unverified` list, what it could not.
+
+## Shape
+
+A receipt is the predicate of an [in-toto](https://in-toto.io) statement whose subject is the head commit.
+
+```json
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [{ "name": "git+https://github.com/owner/name", "digest": { "gitCommit": "9f2c..." } }],
+  "predicateType": "https://oafactory.org/receipt/v1alpha1",
+  "predicate": {
+    "id": "0042-1",
+    "work_order": "0042",
+    "issued_at": "2026-11-24T10:12:00.000Z",
+    "change": { "host": "github", "repo": "owner/name", "number": 431, "base": "41ab..." },
+    "run": { "attempt": 1, "runner": "mini-swe-agent", "runner_model": "anthropic/model-name",
+             "reviewer": "builtin", "reviewer_model": "openai/model-name",
+             "cost_usd": 0.84, "minutes": 11, "state": "merged", "audit": false },
+    "tier": { "value": 1, "because": ["src/config.py matched src/**"] },
+    "evidence": [
+      { "kind": "checks", "met": true, "source": "github:check-runs", "detail": { "lint": "success", "test": "success" } },
+      { "kind": "test_integrity", "met": true, "source": "github:test-report", "detail": { "base": 412, "head": 413, "newly_skipped": 0 } }
+    ],
+    "unverified": ["No integration or browser run exercised this change."],
+    "decision": { "value": "merge", "mode": "earned", "reason": "Tier 1 bar met; standing held." }
+  }
+}
+```
+
+- `runner_model` and `reviewer_model` record the resolved models, not the aliases in your config.
+- `unverified` is always present. It may be empty.
+- `decision.value` is `merge`, `would_merge`, `escalate` or `abandon`.
+
+## No receipt, no merge
+
+The Gate writes the receipt to the Ledger before it asks the Git host to merge. If the Ledger cannot be written, nothing merges. The merge is pinned to the commit that was evaluated: if the head has moved, the Gate starts again on the new head.
+
+## Signing
+
+In shadow mode a receipt may be unsigned. Before any automatic merge, the Gate signs the statement in a DSSE envelope. Without a signer the Gate will not merge.
+
+| Signer | Use | How |
+|---|---|---|
+| `sigstore` | Earned mode | `OAFACTORY_SIGNER=sigstore`, with the `sigstore` npm package installed. Keyless; identity comes from your CI's OIDC token or `SIGSTORE_ID_TOKEN`. |
+| `local-key` | Evaluation, demos, air-gapped trials | `oafactory keys generate`, then `OAFACTORY_SIGNER=local-key`. An Ed25519 key held by the Gate. |
+
+The spec requires Sigstore before automatic merging. The local key produces a valid DSSE envelope but does not meet that requirement, and the CLI says so each time it is used.
+
+```bash
+oafactory ledger verify 0042-1 --key ~/.oafactory/signing-key.pub.pem
+```
+
+## The Ledger
+
+The Ledger is append-only and holds three kinds of record.
+
+| Record | Written by | When |
+|---|---|---|
+| Receipt | Gate | End of every run |
+| Outcome | Watcher | End of the watch window, on revert, or when a person closes the change |
+| Standing | Gate | On promotion or demotion |
+
+It is a SQLite file, by default `~/.oafactory/ledger.db` (set `OAFACTORY_LEDGER` or pass `--ledger`). Database triggers reject every update and delete. It must live outside the repository and outside the Sandbox.
+
+```bash
+oafactory ledger export > ledger.jsonl
+oafactory ledger show 0042-1
+oafactory scoreboard
+```
+
+Postgres is planned as a second backend behind the same interface, for a Ledger shared across machines. It is not implemented yet.
+
+## Scoreboard
+
+| Metric | Definition |
+|---|---|
+| First-attempt accept rate | Work orders merged on attempt 1 with no human commits, divided by work orders started |
+| Cost per accepted change | Cost of all runs, including abandoned ones, divided by changes that held |
+| Escalations per accepted change | Escalated runs divided by changes that held |
+| Agreement rate by tier | As defined under [Standing](/concepts/standing) |
+| Revert rate by tier | Changes reverted divided by changes merged |
+
+Human minutes per accepted change is the number that matters most. It is not measurable yet; escalations stand in for it.

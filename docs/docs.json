@@ -1,0 +1,19 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "OAFactory",
+  "description": "An open software factory: agents write changes, a deterministic Gate decides what merges, and every run leaves a receipt.",
+  "colors": { "primary": "#B4530A", "light": "#F2A65A", "dark": "#B4530A" },
+  "navigation": {
+    "groups": [
+      { "group": "Get started", "pages": ["index", "quickstart"] },
+      { "group": "Concepts", "pages": ["concepts/how-it-works", "concepts/tiers", "concepts/evidence", "concepts/standing", "concepts/receipts"] },
+      { "group": "Guides", "pages": ["guides/shadow-mode-github", "guides/running-agents", "guides/earned-mode"] },
+      { "group": "Reference", "pages": ["reference/cli", "reference/factory-config", "reference/work-order", "reference/gateway-config", "reference/conformance", "reference/status"] }
+    ]
+  },
+  "navbar": {
+    "links": [{ "label": "GitHub", "href": "https://github.com/khalaharvi/oafactory" }]
+  },
+  "footer": { "socials": { "github": "https://github.com/khalaharvi/oafactory" } }
+}

@@ -1,0 +1,58 @@
+---
+title: Standing
+description: How a repository earns automatic merging at a tier, and how it loses it.
+---
+
+Standing is whether a repository has earned automatic merging at a tier. It is held per repository and per tier, and only Tiers 0 and 1 can hold it.
+
+## Shadow mode
+
+Every repository starts with `autonomy.mode: shadow`. The Gate evaluates each change and records `would_merge` or `escalate`, and people merge everything. This costs you nothing and builds the record that promotion depends on.
+
+## Agreement
+
+For each `would_merge` decision, what the person did next is the test:
+
+- Merging the change with no further commits **agrees** with the Gate.
+- Requesting changes, pushing more commits before merging, or closing the change **disagrees**.
+
+The agreement rate is agreeing decisions divided by all `would_merge` decisions a person has resolved. Changes the Gate escalated do not count against it.
+
+## Promotion
+
+A tier becomes eligible when all of these hold:
+
+- its last `after_held` would-merge changes were merged and stayed merged through the watch window (20 for Tier 0 and 50 for Tier 1 by default);
+- agreement over that period is at least `min_agreement` (0.95);
+- reverts are at most `max_reverts` (0);
+- for Tier 1, Tier 0 already has standing.
+
+Promotion is never automatic. A person confirms it:
+
+```bash
+oafactory standing
+oafactory standing --promote 0 --confirm "Your Name"
+```
+
+The Gate also needs `autonomy.mode: earned` on the base branch before standing has any effect.
+
+### Why 20 and 50
+
+With zero failures in *n* trials, the true failure rate is plausibly as high as about 3/*n*. Twenty clean changes bound it near 15%, which is acceptable for documentation. Fifty bound it near 6%. These thresholds are provisional until shadow-mode data exists.
+
+## Audit
+
+Once a tier has standing, the Gate still sends a share of would-merge changes (`audit_rate`, 10% by default) to a person. The draw comes from the operating system's random source at decision time, so the Worker cannot predict which changes will be audited.
+
+Audited changes keep the agreement rate current. If agreement over recent audited changes falls below `min_agreement`, the tier loses standing.
+
+## Demotion
+
+One revert of a factory-merged change removes standing at that tier and every tier above it. A revert by a person that references the merge commit counts the same as one opened by the Watcher. Standing returns only through promotion.
+
+## How this implementation reads the spec
+
+The spec says a tier is promoted when "its last `after_held` `would_merge` changes all ended `held`" and also sets a minimum agreement rate below 1.0. A change a person closed never ends `held`, so the two conditions cannot both be read literally. This implementation uses:
+
+- the **window** is the last `after_held` would-merge changes that were merged and finished their watch window, all of which must have held (allowing `max_reverts`);
+- **agreement** is measured over every would-merge decision a person resolved since the window began, including ones they closed.

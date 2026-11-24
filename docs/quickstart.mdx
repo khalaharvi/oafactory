@@ -1,0 +1,79 @@
+---
+title: Quickstart
+description: Install OAFactory, run the demo, and gate a real repository in shadow mode.
+---
+
+## Requirements
+
+- Node.js 22.13 or later
+- `git`, and the `gh` CLI (GitHub) or `glab` CLI (GitLab), signed in
+- Docker, only if you want OAFactory to run agents for you
+
+## 1. Install
+
+The npm package is not published yet. Build it from source:
+
+```bash
+git clone https://github.com/khalaharvi/oafactory
+cd oafactory
+npm install
+npm run build
+npm link -w oafactory
+```
+
+`oafactory --help` should now list the commands.
+
+## 2. Run the demo
+
+```bash
+oafactory demo
+```
+
+In about a second you will see changes classified, an agent's attempts to cheat escalated, a tier earning standing, a signed automatic merge, and a bad merge reverted and demoted. Nothing leaves the process.
+
+## 3. Set up your repository
+
+From the root of a repository:
+
+```bash
+oafactory init
+oafactory ready
+```
+
+`init` reads your repository and writes `.oafactory/factory.yaml` in shadow mode. It protects your CI config, the scripts your checks run through, and agent instruction files, and marks your tests append-only.
+
+`ready` checks that the config protects everything it must. Fix anything marked `FAIL`, then commit the file to your default branch. The Gate only ever reads the config from the base branch, so a change cannot rewrite the rules it is judged by.
+
+## 4. See how a change would be classified
+
+Make some edits, then:
+
+```bash
+oafactory classify --base origin/main
+```
+
+```
+Tier 1  (2 files, 14 lines, against origin/main)
+  src/config.py matched src/**
+  tests/test_empty.py matched tests/**
+```
+
+This runs the same classifier the Gate uses. It is deterministic and uses no model.
+
+## 5. Gate a pull request
+
+```bash
+oafactory gate 431
+```
+
+The Gate reads the change, the checks and the config from the Git host, writes a receipt to the Ledger at `~/.oafactory/ledger.db`, and posts a summary on the pull request. In shadow mode it never merges.
+
+<Note>
+A pull request that OAFactory did not open has no work order and no metered run, so its `budget` evidence is missing and the Gate escalates it. You still get the tier and the evidence summary. To get would-merge decisions, let OAFactory run the agent: see [Running agents](/guides/running-agents).
+</Note>
+
+## Next steps
+
+- [Shadow mode on GitHub](/guides/shadow-mode-github): publish test reports and run the Gate after CI.
+- [Running agents](/guides/running-agents): the Gateway, the Sandbox and work orders.
+- [Earned mode](/guides/earned-mode): what has to be true before the Gate merges anything.

@@ -1,0 +1,78 @@
+---
+title: Status and limits
+description: What is implemented, what has and has not been verified, where the implementation departs from the spec, and the known weaknesses of the design.
+---
+
+OAFactory is at version 0.1, implementing draft revision 2 of the [specification](https://github.com/khalaharvi/oafactory/blob/main/spec/oafactory-spec-v0.1.md). The API version is `v1alpha1`: fields can change without notice. This page is meant to be read before you rely on anything.
+
+## Implemented
+
+All eight steps of the spec's build order:
+
+1. `oafactory ready`, including append-only, required-check and instruction-file checks
+2. The full config schema and the tier classifier
+3. The receipt model and the SQLite Ledger
+4. Host adapters for `gh` and `glab`
+5. The Gate decision procedure, with agreement tracking
+6. Harness, Runner, Sandbox, Gateway and Reviewer
+7. Receipt signing, audit sampling, the Watcher and automatic revert
+8. The conformance suite
+
+## Verified and not verified
+
+| Area | State |
+|---|---|
+| Classifier, config, evidence bars, Gate decisions, standing, Watcher, scoreboard | Covered by the test suite |
+| Ledger: append-only, JSON Lines export | Covered by the test suite |
+| Receipt signing with a local key (DSSE, Ed25519) | Covered by the test suite |
+| Gateway: run keys, budgets, metering, egress allowlist | Covered by the test suite, against a stub provider |
+| Harness: credential hygiene, pristine commits, base-branch instruction files, budgets, attempts | Covered by the test suite, with real git and a local sandbox |
+| **GitHub adapter** | Written against the REST API and `gh` 2.x flags. **Not yet run against live GitHub** |
+| **GitLab adapter** | Written against the REST API documentation. **Not yet run against any GitLab instance** |
+| **Docker sandbox** | Command construction is tested. **The container and its network have not been run**; use `oafactory conformance --live` |
+| **Sigstore signing** | Calls the `sigstore` package's attest function. **Not exercised**: it needs live Fulcio and Rekor |
+| **Built-in agent command lines** | Starting points only. **No real agent has been run through them** |
+| **Real model providers** | The Gateway's request and usage handling follows the published API shapes. **No request has been sent to a real provider** |
+| Postgres Ledger backend | Not implemented. The interface it would sit behind exists |
+
+## Where the implementation departs from the spec
+
+| Topic | Spec | Implementation |
+|---|---|---|
+| Behavior checks | `behavior` evidence is produced by "a check"; no config field names one | Adds `checks.behavior`, a list of check names |
+| Runner and Reviewer commands | `roles.*` has `use` and `model` | Adds `command`, used when `use: command` |
+| Promotion window | "last `after_held` `would_merge` changes all ended `held`" alongside a minimum agreement below 1.0 | See [Standing](/concepts/standing): the window is merged changes; agreement also counts closed ones |
+| Outcomes | Written at the end of the watch window or on revert | Also written when a person closes a would-merge change, and when a pinned merge is refused |
+| Run records | The Ledger has three record kinds | Run state, reviews and Gateway usage live in separate, mutable tables in the same database file |
+| Exact-inverse reverts | The Gate may merge a revert that is the exact inverse of a factory-merged commit | Checked by comparing trees, so only a revert with nothing merged in between qualifies |
+| Second attempts | A failed check or review may start another attempt | Each attempt restarts from the base branch and opens its own change |
+| `pr-agent` | Named as the example Reviewer | No adapter yet; use `builtin` or `command` |
+| Receipt fields | The example predicate | Adds `issued_at` and `run.attempt` |
+
+### A problem in the spec's example config
+
+The example gives `src/**` Tier 1 and marks `tests/` append-only, but has no tier rule for `tests/`. A new test file therefore falls to the default Tier 2. Tier 1 requires `new_test` evidence, so with that config no change can ever be Tier 1. `oafactory init` adds the missing rule and `oafactory ready` warns about it.
+
+## Known weaknesses of the design
+
+These come from the specification and apply to any implementation of it.
+
+- **Passing checks is not correctness.** Published studies find roughly half of test-passing agent patches would be rejected by maintainers. This is why Tiers 0 and 1 are narrow and why agreement must be earned.
+- **Model review is weak evidence.** Reviewers miss most planted defects and different models share blind spots.
+- **Check indirection.** If CI runs `make test` and the Worker can edit the `Makefile`, it can hollow out the checks. `ready` looks for common cases, but nothing detects every missing file.
+- **Append-only is not airtight.** In frameworks that auto-load files, a new file can alter existing tests, a pytest `conftest.py` for example. `test_integrity` narrows this but does not close it.
+- **Design quality is unmeasured.** No check captures maintainability. Audit sampling keeps people reading the code but does not score design.
+- **Prompt injection** is mitigated by the trust boundaries, not eliminated.
+- **Unproven at scale.** No organization has published outcome data for merging without human review.
+
+## Still undecided
+
+- How to measure human minutes per accepted change.
+- How `test_integrity` is obtained from CI systems that publish no test report.
+- Whether holdout checks should become mandatory for Tier 1.
+- The `oafactory.org` domain in the receipt's predicate type is not registered yet.
+- The in-toto field names follow the v1 statement format from memory of the spec and should be checked against the current in-toto specification.
+
+## Out of scope for this version
+
+Changes spanning several repositories, monorepo ownership, deployment and production signals, and work orders the factory generates for itself.

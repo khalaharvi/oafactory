@@ -1,0 +1,135 @@
+---
+title: Running agents
+description: Set up the Gateway and the Sandbox, write a work order, and let the Harness run your agent.
+---
+
+`oafactory run` takes a work order and does the rest: sandboxed agent, branch, pull request, review and Gate.
+
+<Note>
+The Harness, Gateway and Reviewer are covered by the test suite using a local sandbox, a stub model provider and an in-memory Git host. The Docker sandbox and the built-in agent command lines have not been exercised against real services in this project's CI. Run `oafactory conformance --live` on your own machine before trusting containment.
+</Note>
+
+## 1. Configure the Gateway
+
+The Gateway holds your provider keys and gives each run a key of its own, limited to the run's budget. The agent never sees a provider key.
+
+```bash
+oafactory gateway init
+```
+
+This writes `~/.oafactory/gateway.yaml`. Edit it:
+
+```yaml
+models:
+  oafactory/coder:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    key_env: ANTHROPIC_API_KEY
+    usd_per_mtok: { input: 0, output: 0 }   # replace with the prices you pay
+  oafactory/reviewer:
+    provider: openai
+    model: your-reviewer-model
+    key_env: OPENAI_API_KEY
+    usd_per_mtok: { input: 0, output: 0 }
+```
+
+- The names on the left are the aliases your factory config refers to. Receipts record the resolved model.
+- `usd_per_mtok` is what meters the budget. If you leave it at zero, every run costs nothing on paper and the budget never binds.
+- The Runner and Reviewer must be different providers, or carry different `family` values.
+
+Keep this file and the keys it names outside every repository. See the [Gateway reference](/reference/gateway-config).
+
+## 2. Choose a Sandbox
+
+| Sandbox | Containment | Use for |
+|---|---|---|
+| `docker` (default) | A container on an internal Docker network. Its only route out is the Gateway, which allows HTTPS to an allowlist of package registries. | Real work |
+| `local` | None. A child process with a scrubbed environment and a throwaway home directory. | Developing your setup with trusted tasks |
+
+For Docker you supply an image with your agent and your project's toolchain installed:
+
+```bash
+export OAFACTORY_SANDBOX_IMAGE=ghcr.io/you/factory-sandbox:latest
+oafactory conformance --live --sandbox docker
+```
+
+The live probes check, inside your real Sandbox, that a request to a host off the allowlist is refused, that no Git host credential is present, and that no provider key or role token is readable.
+
+## 3. Pick a Runner
+
+In `.oafactory/factory.yaml`:
+
+```yaml
+roles:
+  runner:   { use: mini-swe-agent, model: oafactory/coder }
+  reviewer: { use: builtin, model: oafactory/reviewer }
+```
+
+| `use` | Command the Harness runs in the Sandbox |
+|---|---|
+| `mini-swe-agent` | `mini -m "$OAFACTORY_MODEL" -t "$OAFACTORY_TASK" -y --exit-immediately` |
+| `claude-code` | `claude -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL" --dangerously-skip-permissions` |
+| `pi` | `pi -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL"` |
+| `codex` | `codex exec --full-auto -m "$OAFACTORY_MODEL" "$OAFACTORY_TASK"` |
+| `command` | Whatever you put in `roles.runner.command` |
+
+The built-in command lines are starting points. Agent flags change between versions, and none of them has been verified against a live agent here. `use: command` always works:
+
+```yaml
+roles:
+  runner:
+    use: command
+    model: oafactory/coder
+    command: my-agent --task "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL"
+```
+
+Inside the Sandbox the agent gets:
+
+| Variable | Value |
+|---|---|
+| `OAFACTORY_TASK` | The work order's intent, plus feedback from a failed attempt |
+| `OAFACTORY_MODEL` | The model alias |
+| `OAFACTORY_GATEWAY_URL`, `OAFACTORY_RUN_KEY` | The Gateway and this run's key |
+| `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` | Point Anthropic-style clients at the Gateway |
+| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Point OpenAI-style clients at the Gateway |
+| `HTTPS_PROXY` | The Gateway's egress proxy |
+
+The task arrives in an environment variable, never spliced into a shell command, so issue text cannot inject commands into the Harness.
+
+### Reviewers
+
+`builtin` sends the task, the diff and the base branch's instruction files to the reviewer model through the Gateway and expects a JSON verdict. `command` runs your own reviewer; it must print `{"verdict": "approve" | "request_changes", "comments": []}`. There is no adapter for `pr-agent` yet.
+
+## 4. Write a work order
+
+```yaml
+apiVersion: oafactory/v1alpha1
+kind: WorkOrder
+id: "0042"
+requested_by: krishna
+intent: Fix the crash when the config file is empty.
+scope: { paths: [src/, tests/] }
+budget: { usd_per_run: 1.00 }
+```
+
+```bash
+oafactory run work-order.yaml
+```
+
+A work order may lower the config's budget ceilings. It can never raise them.
+
+### From an issue
+
+```bash
+oafactory run --issue 412 --scope src/,tests/
+```
+
+The issue must carry the `oafactory` label, and the Harness checks that whoever applied it has write access to the repository. The issue's text becomes the intent and nothing more. Scope comes from the command line, and defaults to the whole repository, where protected paths still escalate.
+
+## What happens during a run
+
+1. The Harness checks out the base branch with no credential left behind and starts the Runner.
+2. If the run reaches its dollar or time budget, it stops and ends `abandoned`, with a receipt. The Gateway refuses further requests once the budget is spent.
+3. Otherwise the Harness commits the files, pushes `oafactory/<id>-<attempt>` and opens a pull request.
+4. The Reviewer runs. The Gate waits for checks (30 minutes by default, `--wait` to change) and decides.
+5. If a check failed or the Reviewer asked for changes, another attempt may start from the base branch, up to `max_attempts`. Each attempt is its own run with its own receipt.

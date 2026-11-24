@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: OAFactory is an open software factory. Agents write changes, a deterministic Gate decides what merges, and every run leaves a receipt.
+---
+
+Coding agents can write a change in minutes. The slow part is deciding whether it is safe to merge. OAFactory is that decision, written down as code.
+
+It sits between an agent and your default branch and does five things:
+
+1. **Classifies every change by risk**, from the diff alone. A docs fix is Tier 0. A change to your CI config, your tests or your agent instructions is Tier 3 and always goes to a person.
+2. **Collects evidence from the source.** Check results come from your Git host, spend from the Gateway, test counts from CI reports. Nothing the agent says about its own work counts.
+3. **Starts in shadow mode.** The Gate records what it would have merged while people keep merging. A tier earns automatic merging only after a track record, and a person confirms the promotion.
+4. **Writes a receipt for every run**, including abandoned ones: what was checked, what was not, what it cost and why the Gate decided as it did.
+5. **Watches what it merged.** If a required check fails at the merge commit, it opens a revert, and one revert takes the tier's merge rights away.
+
+## Try it in a minute
+
+The demo runs the whole lifecycle against an in-memory Git host. It needs no account, no keys and no network.
+
+```bash
+oafactory demo
+```
+
+Then follow the [quickstart](/quickstart) to gate a real repository in shadow mode.
+
+## What it is not
+
+- **Not an agent.** OAFactory runs the agent you already use (mini-swe-agent, Claude Code, pi, Codex or any command) inside a sandbox, and judges the result.
+- **Not a reviewer.** It includes a model review step, but treats it as weak evidence. No tier rests on review alone.
+- **Not a promise of correctness.** Passing checks is not the same as being right. Read [what is and is not verified](/reference/status) before you rely on it.
+
+## Where to go next
+
+| If you want to | Read |
+|---|---|
+| See it work | [Quickstart](/quickstart) |
+| Understand the design | [How it works](/concepts/how-it-works) |
+| Know what makes a change Tier 0, 1, 2 or 3 | [Tiers](/concepts/tiers) |
+| Let it merge on its own | [Earned mode](/guides/earned-mode) |
+| Check the implementation against the spec | [Status and limits](/reference/status) |
