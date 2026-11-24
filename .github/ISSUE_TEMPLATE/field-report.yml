@@ -1,0 +1,18 @@
+name: Field report
+description: You ran OAFactory against a real repository or service and want to share what happened
+labels: [field-report]
+body:
+  - type: markdown
+    attributes:
+      value: Several parts of OAFactory have not been run against live services yet (see docs/reference/status.mdx). Reports like this are how they get verified.
+  - type: dropdown
+    id: area
+    attributes: { label: What you ran, multiple: true, options: [GitHub adapter, GitLab adapter, Docker sandbox, Sigstore signing, A runner adapter, Gateway with a real provider, "oafactory init / ready", Other] }
+    validations: { required: true }
+  - type: textarea
+    id: result
+    attributes: { label: What happened, description: What worked, what did not, with output where you can share it. }
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: Versions, description: "oafactory, Node.js, and gh / glab / Docker as relevant." }

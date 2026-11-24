@@ -1,0 +1,25 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: If the bug lets a change get a lower tier, merge unchecked, or leak a credential, please report it privately instead. See SECURITY.md.
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: The command you ran and its output. }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: What you expected }
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: Version, description: Output of `oafactory --version`, and your Node.js version. }
+    validations: { required: true }
+  - type: dropdown
+    id: host
+    attributes: { label: Git host, options: [GitHub, GitLab, Not applicable] }
+  - type: textarea
+    id: config
+    attributes: { label: Factory config, description: Your .oafactory/factory.yaml, if relevant., render: yaml }
