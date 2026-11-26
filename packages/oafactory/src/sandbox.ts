@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { networkInterfaces, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { exec, shell, type ExecResult } from './exec.js';
 
@@ -96,12 +96,16 @@ export class DockerSandbox implements Sandbox {
 
 export const SANDBOX_NETWORK = 'oafactory-sandbox';
 
-/** Create the internal network if needed and return the address the Gateway must listen on to be reachable from it. */
-export async function ensureNetwork(name = SANDBOX_NETWORK, docker = 'docker'): Promise<string> {
-  const inspect = () => exec(docker, ['network', 'inspect', name, '--format', '{{.Internal}} {{(index .IPAM.Config 0).Gateway}}']);
+/** Runs the docker CLI with an argument vector. Injected so the network plumbing can be tested without Docker. */
+export type DockerCli = (args: string[]) => Promise<ExecResult>;
+const dockerCli = (docker: string): DockerCli => (args) => exec(docker, args);
+
+/** Create the internal network if needed and return its gateway address. */
+export async function ensureNetwork(name = SANDBOX_NETWORK, docker = 'docker', run: DockerCli = dockerCli(docker)): Promise<string> {
+  const inspect = () => run(['network', 'inspect', name, '--format', '{{.Internal}} {{(index .IPAM.Config 0).Gateway}}']);
   let r = await inspect();
   if (r.code !== 0) {
-    const c = await exec(docker, ['network', 'create', '--internal', name]);
+    const c = await run(['network', 'create', '--internal', name]);
     if (c.code !== 0) throw new Error(`could not create docker network ${name}: ${c.stderr.trim()}`);
     r = await inspect();
   }
@@ -109,4 +113,110 @@ export async function ensureNetwork(name = SANDBOX_NETWORK, docker = 'docker'): 
   if (internal !== 'true') throw new Error(`docker network ${name} exists but is not internal; remove it or pick another name`);
   if (!gatewayIp) throw new Error(`could not read the gateway address of docker network ${name}`);
   return gatewayIp;
+}
+
+/** True when an address belongs to one of this machine's network interfaces. */
+export function isLocalAddress(ip: string, interfaces: ReturnType<typeof networkInterfaces> = networkInterfaces()): boolean {
+  return Object.values(interfaces).some((list) => (list ?? []).some((i) => i.address === ip));
+}
+
+/** How the Sandbox reaches the Gateway: where the Gateway listens, and the URL the Worker is given once it does. */
+export interface GatewayRoute {
+  listenHost: string;
+  connect(port: number): Promise<{ url: string; close(): Promise<void> }>;
+}
+
+/** The local sandbox shares this machine's network, so the Gateway listens on loopback. */
+export const LOOPBACK_ROUTE: GatewayRoute = {
+  listenHost: '127.0.0.1',
+  connect: async (port) => ({ url: `http://127.0.0.1:${port}`, close: async () => {} }),
+};
+
+/**
+ * A TCP relay that forwards every connection to one fixed address and nowhere
+ * else. It reads its target from the environment so the same source runs in a
+ * container and in the tests.
+ */
+export const RELAY_SOURCE = [
+  "const net = require('node:net');",
+  "const host = process.env.OAF_TARGET_HOST || 'host.docker.internal';",
+  'const port = Number(process.env.OAF_TARGET_PORT);',
+  'const server = net.createServer((c) => {',
+  '  const u = net.connect(port, host);',
+  "  c.on('error', () => u.destroy()); u.on('error', () => c.destroy());",
+  '  c.pipe(u).pipe(c);',
+  '});',
+  "server.listen(Number(process.env.OAF_LISTEN_PORT || 8080), () => console.log('relay ready ' + server.address().port));",
+].join('\n');
+
+export const RELAY_PORT = 8080;
+
+export interface RelayOptions {
+  /** The internal network the Worker runs on. */
+  network: string;
+  image: string;
+  /** The port the Gateway listens on, on this machine's loopback interface. */
+  target: number;
+  run: DockerCli;
+  name?: string;
+  waitMs?: number;
+}
+
+/**
+ * Start a relay container joined to the internal network and to Docker's
+ * default bridge, forwarding only to the Gateway on this machine. The Worker
+ * stays on the internal network alone, so its only way out is still the
+ * Gateway. The relay runs as nobody, with no capabilities and a read-only root.
+ */
+export async function startRelay(o: RelayOptions): Promise<{ address: string; port: number; close(): Promise<void> }> {
+  const name = o.name ?? `oafactory-relay-${randomBytes(6).toString('hex')}`;
+  const close = async () => { await o.run(['rm', '-f', name]).catch(() => undefined); };
+  const started = await o.run([
+    'run', '-d', '--rm', '--name', name, '--network', 'bridge', '--add-host', 'host.docker.internal:host-gateway',
+    '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--read-only', '--pids-limit', '64', '--user', '65534:65534',
+    '-e', `OAF_TARGET_PORT=${o.target}`, '-e', `OAF_LISTEN_PORT=${RELAY_PORT}`, o.image, 'node', '-e', RELAY_SOURCE,
+  ]);
+  if (started.code !== 0) throw new Error(`could not start the Gateway relay container: ${started.stderr.trim()}. Check that the image ${o.image} has \`node\`.`);
+  try {
+    const joined = await o.run(['network', 'connect', o.network, name]);
+    if (joined.code !== 0) throw new Error(`could not join the Gateway relay to docker network ${o.network}: ${joined.stderr.trim()}`);
+    const inspected = await o.run(['inspect', '--format', '{{json .NetworkSettings.Networks}}', name]);
+    const networks = (() => { try { return JSON.parse(inspected.stdout) as Record<string, { IPAddress?: string }>; } catch { return {}; } })();
+    const address = networks[o.network]?.IPAddress;
+    if (!address) throw new Error(`could not read the Gateway relay's address on docker network ${o.network}`);
+    const deadline = Date.now() + (o.waitMs ?? 15_000);
+    for (;;) {
+      if ((await o.run(['logs', name])).stdout.includes('relay ready')) break;
+      if (Date.now() > deadline) throw new Error('the Gateway relay container did not start listening in time; see `docker logs` for the container, or run with --sandbox docker on a Linux host');
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return { address, port: RELAY_PORT, close };
+  } catch (e) {
+    await close();
+    throw e;
+  }
+}
+
+/**
+ * Work out how a container on the internal network reaches the Gateway.
+ *
+ * On Linux the internal network's gateway address is on this machine, so the
+ * Gateway listens there directly. Docker Desktop (macOS, Windows) runs
+ * containers in a VM: that address is not on this machine and an internal
+ * network has no route out of the VM, so a relay container carries the
+ * Gateway's traffic, and only its traffic.
+ */
+export async function dockerGatewayRoute(o: { network: string; image: string; docker?: string; run?: DockerCli; isLocal?: (ip: string) => boolean }): Promise<GatewayRoute> {
+  const run = o.run ?? dockerCli(o.docker ?? 'docker');
+  const gatewayIp = await ensureNetwork(o.network, o.docker, run);
+  if ((o.isLocal ?? isLocalAddress)(gatewayIp)) {
+    return { listenHost: gatewayIp, connect: async (port) => ({ url: `http://${gatewayIp}:${port}`, close: async () => {} }) };
+  }
+  return {
+    listenHost: '127.0.0.1',
+    connect: async (port) => {
+      const relay = await startRelay({ network: o.network, image: o.image, target: port, run });
+      return { url: `http://${relay.address}:${relay.port}`, close: relay.close };
+    },
+  };
 }

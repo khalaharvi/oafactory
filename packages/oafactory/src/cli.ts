@@ -17,7 +17,7 @@ import { Ledger, Store, defaultLedgerPath, openDb } from './ledger.js';
 import { liveProbes } from './probes.js';
 import { ready } from './ready.js';
 import { LocalKeySigner, SigstoreSigner, verifyEnvelope, type Signer } from './receipt.js';
-import { DockerSandbox, LocalSandbox, SANDBOX_NETWORK, ensureNetwork, type Sandbox } from './sandbox.js';
+import { DockerSandbox, LOOPBACK_ROUTE, LocalSandbox, SANDBOX_NETWORK, dockerGatewayRoute, type GatewayRoute, type Sandbox } from './sandbox.js';
 import { scoreboard } from './scoreboard.js';
 import { hasStanding, promote, promotionStatus } from './standing.js';
 import type { ChangedFile, Tier, WorkOrder } from './types.js';
@@ -162,14 +162,14 @@ async function localChanges(base: string): Promise<ChangedFile[]> {
   return files;
 }
 
-async function makeSandbox(flags: Flags): Promise<{ sandbox: Sandbox; listenHost: string }> {
+async function makeSandbox(flags: Flags): Promise<{ sandbox: Sandbox; route: GatewayRoute }> {
   const kind = (flags.sandbox as string | undefined) ?? 'docker';
-  if (kind === 'local') return { sandbox: new LocalSandbox(), listenHost: '127.0.0.1' };
+  if (kind === 'local') return { sandbox: new LocalSandbox(), route: LOOPBACK_ROUTE };
   if (kind !== 'docker') throw new Error(`unknown sandbox "${kind}"; use docker or local`);
   // The built-in Runner needs only Node. Use your own image when the work needs your project's toolchain.
   const image = (flags.image as string | undefined) ?? process.env.OAFACTORY_SANDBOX_IMAGE ?? DEFAULT_SANDBOX_IMAGE;
   const network = (flags.network as string | undefined) ?? SANDBOX_NETWORK;
-  return { sandbox: new DockerSandbox({ image, network }), listenHost: await ensureNetwork(network) };
+  return { sandbox: new DockerSandbox({ image, network }), route: await dockerGatewayRoute({ network, image }) };
 }
 
 /** Turn a plain sentence into a work order. Scope comes from --scope, never from the sentence. */
@@ -278,19 +278,22 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
     err('');
 
     const gateway = await loadGateway(flags, store);
-    const { sandbox, listenHost } = await makeSandbox(flags);
-    const server = await gateway.listen(`${listenHost}:0`);
+    const { sandbox, route } = await makeSandbox(flags);
+    const server = await gateway.listen(`${route.listenHost}:0`);
+    let link: { url: string; close(): Promise<void> } | undefined;
     try {
+      link = await route.connect(server.port);
       const token = process.env.OAFACTORY_HARNESS_TOKEN ?? process.env.GH_TOKEN ?? process.env.GITLAB_TOKEN;
       const results = await runWorkOrder({
         host: harnessHost, gate: { host: gateHost, ledger, store, signer: await signerFrom(flags) }, gateway,
-        gatewayUrl: `http://${listenHost}:${server.port}`, sandbox, transport: new GitTransport(harnessHost.cloneUrl(), token),
+        gatewayUrl: link.url, sandbox, transport: new GitTransport(harnessHost.cloneUrl(), token),
         gateOptions: { waitMs: Number(flags.wait ?? 30) * 60_000 }, log: err,
       }, wo);
       if (flags.json) out(JSON.stringify(results.map((r) => ({ run: r.run.id, change: r.change, decision: r.gate?.decision ?? 'abandon', reason: r.gate?.statement.predicate.decision.reason ?? r.abandoned })), null, 2));
       else for (const r of results) out(`${r.run.id}  ${(r.gate?.decision ?? 'abandon').toUpperCase()}  ${r.change ? `change #${r.change}` : 'no change'}  ${r.gate?.statement.predicate.decision.reason ?? r.abandoned}`);
       return 0;
     } finally {
+      await link?.close();
       await server.close();
     }
   },
@@ -407,14 +410,16 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
       return 0;
     }
     const { store } = stores({ ...flags, ledger: ':memory:' });
-    const { sandbox, listenHost } = await makeSandbox(flags);
+    const { sandbox, route } = await makeSandbox(flags);
     const gwPath = (flags['gateway-config'] as string | undefined) ?? join(homedir(), '.oafactory', 'gateway.yaml');
     const gwConfig = parseGatewayConfig(existsSync(gwPath) ? await readFile(gwPath, 'utf8') : 'models: {}');
     const gw = new Gateway(gwConfig, store);
-    const server = await gw.listen(`${listenHost}:0`);
+    const server = await gw.listen(`${route.listenHost}:0`);
     const dir = await mkdtemp(join(tmpdir(), 'oafactory-probe-'));
+    let link: { url: string; close(): Promise<void> } | undefined;
     try {
-      const url = `http://${listenHost}:${server.port}`;
+      link = await route.connect(server.port);
+      const url = link.url;
       const secrets = [process.env.OAFACTORY_HARNESS_TOKEN, process.env.OAFACTORY_GATE_TOKEN, process.env.OAFACTORY_WATCHER_TOKEN, process.env.GH_TOKEN, process.env.GITLAB_TOKEN,
         ...Object.values(gwConfig.models).map((m) => process.env[m.key_env])].filter((s): s is string => !!s);
       const probes = await liveProbes(sandbox, dir, url, secrets);
@@ -422,6 +427,7 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
       if (!sandbox.contained) out(col(33, 'The local sandbox is not contained; these results say little. Use --sandbox docker.'));
       return probes.every((p) => p.pass) ? 0 : 1;
     } finally {
+      await link?.close();
       await server.close();
       await rm(dir, { recursive: true, force: true });
     }

@@ -55,7 +55,7 @@ oafactory conformance --live --sandbox docker
 
 The live probes run inside your real Sandbox. They check that the Gateway is reachable, that a request to a host off the allowlist is refused, that the internet cannot be reached directly, that no Git host credential is present, and that no provider key or role token is readable. They need Node in the image.
 
-The container runs as your user, with every capability dropped, on a Docker network created with `--internal`. Its only route out is the Gateway.
+The container runs as your user, with every capability dropped, on a Docker network created with `--internal`. Its only route out is the Gateway. On Docker Desktop, where that network cannot reach your machine, a relay container carries the Gateway's traffic and nothing else; see [Troubleshooting](/guides/troubleshooting).
 
 ### What newer Node versions add
 
