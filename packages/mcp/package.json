@@ -1,6 +1,6 @@
 {
   "name": "oafactory-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for OAFactory: draft, explain, save and run work orders from Claude or any other MCP client.",
   "license": "Apache-2.0",
   "type": "module",
@@ -16,7 +16,7 @@
   "engines": { "node": ">=22.13" },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
-    "oafactory": "^0.1.0",
+    "oafactory": "^0.2.0",
     "zod": "^4.2.0"
   },
   "devDependencies": {

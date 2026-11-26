@@ -10,7 +10,7 @@ import {
 } from 'oafactory';
 import { z } from 'zod';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 export interface ServerOptions {
   /** The repository root: where `.oafactory/factory.yaml` lives. */

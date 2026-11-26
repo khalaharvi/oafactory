@@ -133,7 +133,7 @@ OAFactory follows [Semantic Versioning](https://semver.org). While the version i
 A release is a pull request like any other:
 
 1. Move the `Unreleased` entries in `CHANGELOG.md` under a new version heading with the date.
-2. Set the same version in `packages/oafactory/package.json`, `packages/oafactory/src/cli.ts` and `apps/web/lib/site.ts`.
+2. Set the same version in `packages/oafactory/package.json`, `packages/oafactory/src/cli.ts`, `packages/mcp/package.json` (its own version and its `oafactory` dependency), `packages/mcp/src/server.ts` and `apps/web/lib/site.ts`, then run `npm install` to update the lockfile.
 3. Title it `chore(release): vX.Y.Z` and merge it when CI is green.
 
 When it lands on `main`, the release workflow sees a version that has no tag yet, runs the tests, and creates the `vX.Y.Z` tag and the GitHub release with that version's changelog entry. Nobody pushes tags by hand.
