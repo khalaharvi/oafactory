@@ -27,9 +27,9 @@ npm test
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs every test, including the conformance suite |
-| `npm run typecheck` | Type-checks the package |
-| `npm run build` | Compiles `packages/oafactory` to `dist/` |
+| `npm test` | Runs every test in `packages/oafactory` (including the conformance suite) and `packages/mcp` |
+| `npm run typecheck` | Type-checks both packages, building `packages/oafactory` first because `packages/mcp` imports it |
+| `npm run build` | Compiles `packages/oafactory` and `packages/mcp` to their `dist/` folders. The repository's `.mcp.json` needs this before Claude Code can start the MCP server |
 | `npm run web` | Runs the site at http://localhost:3000 |
 | `node packages/oafactory/dist/bin.js demo` | End-to-end smoke test, after a build |
 

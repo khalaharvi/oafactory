@@ -3,7 +3,7 @@ title: Status and limits
 description: What is implemented, what has and has not been verified, where the implementation departs from the spec, and the known weaknesses of the design.
 ---
 
-OAFactory is at version 0.1, implementing draft revision 2 of the [specification](https://github.com/khalaharvi/oafactory/blob/main/spec/oafactory-spec-v0.1.md). The API version is `v1alpha1`: fields can change without notice. This page is meant to be read before you rely on anything.
+OAFactory is at version 0.2, implementing draft revision 2 of the [specification](https://github.com/khalaharvi/oafactory/blob/main/spec/oafactory-spec-v0.1.md). The API version is `v1alpha1`: fields can change without notice. This page is meant to be read before you rely on anything.
 
 ## Implemented
 
@@ -37,6 +37,7 @@ All eight steps of the spec's build order:
 | **Third-party agent command lines** | Starting points only. **No real agent has been run through them** |
 | **Real model providers** | The Gateway's request and usage handling follows the published API shapes. **No request has been sent to a real provider** |
 | Postgres Ledger backend | Not implemented. The interface it would sit behind exists |
+| Running the tests on macOS | CI runs on Linux. On macOS every `packages/oafactory` test passes, but one `packages/mcp` test, `run_work_order > starts a saved work order in the background`, fails: the fixture compares the child's `process.cwd()` with a path under `os.tmpdir()`, and on macOS `/var` is a symlink to `/private/var`. The server passes the right directory; the test's expectation does not resolve the symlink. The test file is append-only, so the fix is left to a maintainer |
 
 ## Where the implementation departs from the spec
 
