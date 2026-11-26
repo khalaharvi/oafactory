@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
 ### Added
 
 - This repository ships a `.mcp.json`, so Claude Code offers the OAFactory MCP server to anyone working in it, after they approve it.
@@ -70,5 +72,6 @@ The first release. It implements all eight build steps of specification v0.1, dr
 - No Postgres Ledger backend and no `pr-agent` Reviewer adapter yet.
 - See [Status and limits](docs/reference/status.mdx) for the full list, including where the implementation departs from the spec.
 
-[Unreleased]: https://github.com/khalaharvi/oafactory/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/khalaharvi/oafactory/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/khalaharvi/oafactory/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/khalaharvi/oafactory/releases/tag/v0.1.0

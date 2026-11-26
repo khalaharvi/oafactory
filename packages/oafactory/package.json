@@ -1,6 +1,6 @@
 {
   "name": "oafactory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An open software factory: agents write changes, a deterministic Gate decides what merges, and every run leaves a receipt.",
   "license": "Apache-2.0",
   "type": "module",
