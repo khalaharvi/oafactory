@@ -3,7 +3,7 @@ apiVersion: oafactory/v1alpha1
 kind: Factory
 
 protected: [.oafactory/, .github/, "*package.json", package-lock.json, "*tsconfig.json", "*tsconfig.build.json", "*vitest.config.ts", "*next.config.mjs", vercel.json, spec/, LICENSE,
-            "*AGENTS.md", "*CLAUDE.md", "*GEMINI.md", "*.cursorrules", "*.cursor/rules/*", "*.claude/*", "*.github/copilot-instructions.md"]
+            "*AGENTS.md", "*CLAUDE.md", "*GEMINI.md", "*.cursorrules", "*.cursor/rules/*", "*.claude/*", "*.github/copilot-instructions.md", "*.mcp.json"]
 append_only: [packages/oafactory/test/, packages/mcp/test/]
 
 checks:

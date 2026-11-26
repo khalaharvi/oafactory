@@ -21,7 +21,7 @@ export async function draftConfig(root: string): Promise<{ yaml: string; notes: 
     'vitest.config.ts', 'vitest.config.js', 'jest.config.js', 'jest.config.ts', 'tsconfig.json'];
   for (const m of manifests) if (files.some((f) => f === m || f.endsWith(`/${m}`))) protectedPaths.push(`*${m}`);
   // Instruction files are protected whether or not they exist yet: adding one is itself a Tier 3 change.
-  protectedPaths.push('*AGENTS.md', '*CLAUDE.md', '*GEMINI.md', '*.cursorrules', '*.cursor/rules/*', '*.claude/*', '*.github/copilot-instructions.md');
+  protectedPaths.push('*AGENTS.md', '*CLAUDE.md', '*GEMINI.md', '*.cursorrules', '*.cursor/rules/*', '*.claude/*', '*.github/copilot-instructions.md', '*.mcp.json');
 
   const testDirs = ['tests/', 'test/', 'spec/', '__tests__/', 'e2e/'].filter((d) => files.some((f) => f.startsWith(d)));
   const appendOnly = [...testDirs];

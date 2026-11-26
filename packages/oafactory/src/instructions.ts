@@ -6,6 +6,8 @@ import { firstMatch } from './paths.js';
 export const INSTRUCTION_PATTERNS = [
   '*AGENTS.md', '*AGENTS.override.md', '*CLAUDE.md', '*CLAUDE.local.md', '*GEMINI.md', '*.cursorrules', '*.cursor/rules/*', '*.windsurfrules',
   '*.clinerules*', '*.github/copilot-instructions.md', '*.github/instructions/*', '*.claude/*', '*.codex/*', '*.pi/*', '*.aider.conf.yml', '*CONVENTIONS.md',
+  // MCP server lists tell an agent which programs to start, so they are instructions too.
+  '*.mcp.json', '*.cursor/mcp.json', '*.vscode/mcp.json',
 ];
 
 export function isInstructionFile(path: string): boolean {

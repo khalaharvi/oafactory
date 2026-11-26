@@ -196,3 +196,13 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .band .split { align-items: start; }
 @media (max-width: 860px) { .plain { grid-template-columns: 1fr; gap: 22px; } }
 .section > .cmd { max-width: 46rem; }
+
+.say-it { margin-top: 3.2rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 30px 32px; }
+.say-it h3 { font: 600 1.45rem/1.2 var(--serif); margin-bottom: 0.7rem; }
+.say-it p { color: var(--muted); }
+.say-it .more { margin-top: 1.1rem; }
+.chat { display: grid; gap: 12px; font-size: 0.93rem; }
+.chat p { border-radius: 12px; padding: 12px 14px; color: var(--ink); background: var(--bg-2); max-width: 92%; }
+.chat p span { display: block; font: 600 0.66rem/1.7 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.chat .them { justify-self: end; border: 1px solid var(--accent); background: transparent; }
+@media (max-width: 860px) { .say-it { grid-template-columns: 1fr; padding: 22px 20px; gap: 24px; } }

@@ -108,6 +108,18 @@ export default function Home() {
         </ol>
         <pre className="cmd"><code><span className="prompt">$</span> oafactory explain work-order.yaml<span className="comment">   # this, for your own request and rules</span></code></pre>
         <p className="more"><Link href="/docs/work-orders-explained">A work order, in plain words</Link></p>
+        <aside className="say-it">
+          <div>
+            <p className="eyebrow">From Claude, or any MCP client</p>
+            <h3>Or just say what you want done</h3>
+            <p>OAFactory ships an MCP server. Describe the change in conversation, and your assistant drafts the work order, shows you what would happen, and saves it. It cannot start work unless you allow it, and it can never approve or merge.</p>
+            <p className="more"><Link href="/docs/guides/mcp">Use it from Claude</Link></p>
+          </div>
+          <div className="chat" aria-label="Example conversation">
+            <p className="you"><span>You</span>Fix the crash on empty config files. Keep it to src and tests, and spend no more than a dollar.</p>
+            <p className="them"><span>Assistant</span>Only in src/, tests/. Up to $1.00 and 30 minutes per attempt. This project is in shadow mode, so a person decides. Shall I save it?</p>
+          </div>
+        </aside>
       </section>
 
       <section className="band">
