@@ -6,6 +6,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
+- This repository ships a `.mcp.json`, so Claude Code offers the OAFactory MCP server to anyone working in it, after they approve it.
+- MCP server lists (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) are treated as agent instruction files. `oafactory init` protects them, `oafactory ready` checks for them, and one added by a change is removed before the Runner or Reviewer loads the checkout.
 - Newer Node features are used inside the Sandbox when the image has them. From Node 26 the built-in Runner starts under Node's permission model, limiting its own file access to the project. From Node 24, Node programs in the Sandbox honour the proxy settings and reach allowlisted hosts through the Gateway. The default sandbox image is now `node:26-slim`. OAFactory itself still runs on Node 22.13 or later.
 - An MCP server, `oafactory-mcp`, built on version 2 of the MCP TypeScript SDK. From Claude or any other MCP client you can read a project's factory rules, draft a work order and see in plain words what it would do, save it, and follow its result. Starting a run from the assistant is off unless the server is given `--allow-run`.
 - `oafactory explain <work-order.yaml>` now ends with notes worth knowing before the run, such as a scope that allows code changes but not the tests they need.

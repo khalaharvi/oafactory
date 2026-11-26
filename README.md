@@ -127,6 +127,8 @@ OAFactory ships an MCP server, so you can write work orders in conversation with
 claude mcp add oafactory -- node /path/to/oafactory/packages/mcp/dist/bin.js
 ```
 
+Working in this repository itself? It ships a `.mcp.json`, so after `npm run build` Claude Code offers the server and asks you to approve it.
+
 By default the assistant can draft and save but not start work: you start a run yourself. → [Use it from Claude (MCP)](docs/guides/mcp.mdx)
 
 ## Use it on your repository

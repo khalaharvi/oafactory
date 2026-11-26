@@ -8,7 +8,7 @@ OAFactory includes an MCP server, `oafactory-mcp`. Once it is connected, you can
 It is built on version 2 of the MCP TypeScript SDK and speaks MCP over stdio, so it works with Claude Code, Claude Desktop and other MCP clients.
 
 <Note>
-The server is tested by driving it with the official MCP client over stdio. It has not yet been tried inside Claude Desktop or Claude Code by this project. The npm package is not published yet, so the commands below use a path into a checkout.
+The server is tested by driving it with the official MCP client over stdio, and Claude Code connects to it with the command below. It has not been tried in Claude Desktop, and no conversation with a real assistant has been run through it by this project. The npm package is not published yet, so the commands below use a path into a checkout.
 </Note>
 
 ## What it can do
@@ -41,6 +41,26 @@ From the root of the repository you want the factory to work on:
 ```bash
 claude mcp add oafactory -- node /path/to/oafactory/packages/mcp/dist/bin.js
 ```
+
+Check that it connected:
+
+```bash
+claude mcp list
+```
+
+### Share it with everyone who works on a repository
+
+Claude Code reads a `.mcp.json` file at the root of a repository, so the server can travel with the code:
+
+```bash
+claude mcp add --scope project oafactory -- node /path/to/oafactory/packages/mcp/dist/bin.js
+```
+
+Each person is asked to approve a project server the first time they open the repository. The OAFactory repository ships one for itself; build the project and approve it when Claude Code asks.
+
+<Warning>
+A file like `.mcp.json` tells an agent which programs to start, so a change to it deserves the same care as a change to your CI. OAFactory treats MCP server lists as agent instruction files: `oafactory init` protects `*.mcp.json`, so adding or editing one is Tier 3 and always goes to a person, and one added by a change is removed before the Runner or Reviewer loads the checkout.
+</Warning>
 
 ### Claude Desktop and other clients
 
