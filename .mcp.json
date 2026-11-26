@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "oafactory": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "packages/mcp/dist/bin.js"
+      ],
+      "env": {}
+    }
+  }
+}
