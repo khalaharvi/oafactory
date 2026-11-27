@@ -6,7 +6,7 @@ description: Set up the Gateway and the Sandbox, write a work order, and let the
 `oafactory run` takes a work order and does the rest: sandboxed agent, branch, pull request, review and Gate.
 
 <Note>
-The Harness, Gateway, Reviewer and built-in Runner have been run end to end inside a real Docker sandbox, with a scripted stand-in for the model provider. No request has been sent to a real provider yet, and the command lines for third-party agents are unverified. Run `oafactory conformance --live` on your own machine before trusting containment.
+The Harness, Gateway and built-in Runner have completed a work order inside a real Docker sandbox with a real Anthropic model. OpenAI-style providers have not been tried, and the command lines for third-party agents are unverified. Run `oafactory conformance --live` on your own machine before trusting containment.
 </Note>
 
 ## 1. Configure the Gateway
