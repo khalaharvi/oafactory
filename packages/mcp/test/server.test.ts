@@ -3,7 +3,7 @@
  * other MCP client would.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +43,8 @@ const clients: Client[] = [];
 afterEach(async () => { for (const c of clients.splice(0)) await c.close(); });
 
 function project() {
-  const dir = mkdtempSync(join(tmpdir(), 'oaf-mcp-'));
+  // macOS's temp directory is under /var, a symlink to /private/var; a child process reports the resolved path.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'oaf-mcp-')));
   const repo = join(dir, 'repo');
   mkdirSync(join(repo, '.oafactory'), { recursive: true });
   mkdirSync(join(repo, 'src')); mkdirSync(join(repo, 'tests'));
