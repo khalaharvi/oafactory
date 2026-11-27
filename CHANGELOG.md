@@ -8,6 +8,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - The Docker sandbox works on Docker Desktop (macOS, and Windows in principle). Before, `oafactory run` and `oafactory conformance --live` failed with `listen EADDRNOTAVAIL`, because the internal network's address is inside Docker Desktop's VM. When that address is not on your machine, the Gateway now listens on loopback and a locked-down relay container forwards the Sandbox's traffic to it and nowhere else. Linux is unchanged.
 - The built-in Reviewer's model request is tried up to three times when the network fails or the provider is overloaded or rate-limited, so one passing timeout no longer leaves a change without review evidence. When every try fails, the error names the underlying cause, such as `ETIMEDOUT`, instead of only `fetch failed`.
+- `oafactory explain <receipt-id>` no longer says a change was "Reviewed by" the configured Reviewer when no review was recorded, for example because the Reviewer's request failed. It now says no review was recorded and names the Reviewer that was set up.
 
 ## [0.2.0] - 2026-11-26
 

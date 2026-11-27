@@ -162,8 +162,12 @@ export function explainReceipt(st: Statement, outcome?: OutcomeRecord): string {
   }
 
   lines.push('', section('What could not be confirmed', p.unverified.length ? p.unverified.map((u) => `- ${u}`) : ['Nothing was recorded here.']));
+  // A review is on record only when its verdict is; the run's reviewer fields name the configured Reviewer either way.
+  const reviewed = typeof p.evidence.find((e) => e.kind === 'review')?.detail?.verdict === 'string';
   lines.push('', section('Who did the work, and what it cost', [
-    `Written by ${p.run.runner} using ${p.run.runner_model}. Reviewed by ${p.run.reviewer} using ${p.run.reviewer_model}.`,
+    `Written by ${p.run.runner} using ${p.run.runner_model}. ${reviewed
+      ? `Reviewed by ${p.run.reviewer} using ${p.run.reviewer_model}.`
+      : `No review was recorded. The second AI set up to review it was ${p.run.reviewer} using ${p.run.reviewer_model}.`}`,
     `${money(p.run.cost_usd)} and ${p.run.minutes} minutes, on attempt ${p.run.attempt}.`,
     p.work_order ? `Work order ${p.work_order}.` : 'No work order is on record for this change.',
   ]));
