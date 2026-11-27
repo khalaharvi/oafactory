@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- The `claude-code` and `mini-swe-agent` Runner commands now work unattended in the Sandbox, as found in live runs. Claude Code no longer tries to call `api.anthropic.com` directly. mini-swe-agent skips its first-run setup prompt, names the model's provider, and no longer fetches a price list from GitHub. Every Runner now gets `OAFACTORY_API_STYLE`, not only the built-in one.
+
 ## [0.3.0] - 2026-11-27
 
 ### Fixed

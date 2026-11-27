@@ -6,7 +6,7 @@ description: Set up the Gateway and the Sandbox, write a work order, and let the
 `oafactory run` takes a work order and does the rest: sandboxed agent, branch, pull request, review and Gate.
 
 <Note>
-The Harness, Gateway and built-in Runner have completed a work order inside a real Docker sandbox with a real Anthropic model. OpenAI-style providers have not been tried, and the command lines for third-party agents are unverified. Run `oafactory conformance --live` on your own machine before trusting containment.
+The Harness, Gateway, the built-in Runner, Claude Code and mini-swe-agent have each completed a work order inside a real Docker sandbox with a real Anthropic model. OpenAI-style providers have not been tried, and the `pi` and `codex` command lines are unverified. Run `oafactory conformance --live` on your own machine before trusting containment.
 </Note>
 
 ## 1. Configure the Gateway
@@ -83,13 +83,13 @@ roles:
 | `use` | Command the Harness runs in the Sandbox |
 |---|---|
 | `builtin` | OAFactory's own agent. Needs only Node in the Sandbox image |
-| `mini-swe-agent` | `mini -m "$OAFACTORY_MODEL" -t "$OAFACTORY_TASK" -y --exit-immediately` |
-| `claude-code` | `claude -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL" --dangerously-skip-permissions` |
+| `mini-swe-agent` | `MSWEA_CONFIGURED=true MSWEA_COST_TRACKING=ignore_errors LITELLM_LOCAL_MODEL_COST_MAP=True mini -m "$OAFACTORY_API_STYLE/$OAFACTORY_MODEL" -t "$OAFACTORY_TASK" -y --exit-immediately -l 0` |
+| `claude-code` | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 claude -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL" --dangerously-skip-permissions` |
 | `pi` | `pi -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL"` |
 | `codex` | `codex exec --full-auto -m "$OAFACTORY_MODEL" "$OAFACTORY_TASK"` |
 | `command` | Whatever you put in `roles.runner.command` |
 
-The command lines for third-party agents are starting points. Agent flags change between versions, and none of them has been verified against a live agent here. `use: command` always works:
+`claude-code` and `mini-swe-agent` have each completed a work order in the Docker sandbox: Claude Code 2.1.332 and mini-swe-agent 2.4.6, both with an Anthropic model through the Gateway. `pi` and `codex` are starting points that have not been run. Agent flags change between versions, so check them against the version in your image. `use: command` always works:
 
 ```yaml
 roles:
@@ -99,12 +99,36 @@ roles:
     command: my-agent --task "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL"
 ```
 
+### Images for third-party agents
+
+The agent must be installed in the Sandbox image. These are the images the live runs used:
+
+```dockerfile
+# claude-code
+FROM node:26-slim
+RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
+```
+
+```dockerfile
+# mini-swe-agent
+FROM python:3.12-slim
+RUN pip install --no-cache-dir mini-swe-agent
+```
+
+Add your project's toolchain if its tests need it. Pass the image with `--image` or `OAFACTORY_SANDBOX_IMAGE`.
+
+Why the command lines look the way they do:
+
+- **Claude Code** runs with `--dangerously-skip-permissions` so it never stops to ask for approval. That is safe here because the Sandbox, not Claude Code, is the boundary: the agent can reach only the Gateway, holds only a run key, and works on a throwaway checkout. `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` stops it calling `api.anthropic.com` directly, which the Gateway would refuse anyway.
+- **mini-swe-agent** shows a setup prompt on first start, which aborts without a terminal; `MSWEA_CONFIGURED=true` skips it. Its model library needs the provider in the model name, so the command prefixes `$OAFACTORY_API_STYLE`. `LITELLM_LOCAL_MODEL_COST_MAP=True` stops it fetching a price list from GitHub. Its own cost limit is off (`-l 0`) because the Gateway enforces the budget.
+
 Inside the Sandbox the agent gets:
 
 | Variable | Value |
 |---|---|
 | `OAFACTORY_TASK` | The work order's intent, plus feedback from a failed attempt |
 | `OAFACTORY_MODEL` | The model alias |
+| `OAFACTORY_API_STYLE` | `anthropic` or `openai`: the API the model alias speaks |
 | `OAFACTORY_GATEWAY_URL`, `OAFACTORY_RUN_KEY` | The Gateway and this run's key |
 | `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` | Point Anthropic-style clients at the Gateway |
 | `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Point OpenAI-style clients at the Gateway |
