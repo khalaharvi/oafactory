@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- On Docker Desktop, the Gateway relay now runs its own `node:26-slim` image instead of the sandbox image, so sandbox images without Node (a Python image for mini-swe-agent, for example) work. Set `OAFACTORY_RELAY_IMAGE` to use a mirror.
+
 ## [0.3.0] - 2026-11-27
 
 ### Fixed

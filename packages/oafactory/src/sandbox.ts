@@ -176,7 +176,7 @@ export async function startRelay(o: RelayOptions): Promise<{ address: string; po
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--read-only', '--pids-limit', '64', '--user', '65534:65534',
     '-e', `OAF_TARGET_PORT=${o.target}`, '-e', `OAF_LISTEN_PORT=${RELAY_PORT}`, o.image, 'node', '-e', RELAY_SOURCE,
   ]);
-  if (started.code !== 0) throw new Error(`could not start the Gateway relay container: ${started.stderr.trim()}. Check that the image ${o.image} has \`node\`.`);
+  if (started.code !== 0) throw new Error(`could not start the Gateway relay container: ${started.stderr.trim()}. Check that the image ${o.image} has \`node\`, or set OAFACTORY_RELAY_IMAGE to one that does.`);
   try {
     const joined = await o.run(['network', 'connect', o.network, name]);
     if (joined.code !== 0) throw new Error(`could not join the Gateway relay to docker network ${o.network}: ${joined.stderr.trim()}`);
@@ -206,7 +206,15 @@ export async function startRelay(o: RelayOptions): Promise<{ address: string; po
  * network has no route out of the VM, so a relay container carries the
  * Gateway's traffic, and only its traffic.
  */
-export async function dockerGatewayRoute(o: { network: string; image: string; docker?: string; run?: DockerCli; isLocal?: (ip: string) => boolean }): Promise<GatewayRoute> {
+/**
+ * The relay only needs Node, whatever image the Worker runs in. A sandbox image
+ * built for another language (Python for mini-swe-agent, for example) has none,
+ * so the relay never borrows it.
+ */
+export const RELAY_IMAGE = 'node:26-slim';
+export function relayImage(env: NodeJS.ProcessEnv = process.env): string { return env.OAFACTORY_RELAY_IMAGE || RELAY_IMAGE; }
+
+export async function dockerGatewayRoute(o: { network: string; image?: string; docker?: string; run?: DockerCli; isLocal?: (ip: string) => boolean }): Promise<GatewayRoute> {
   const run = o.run ?? dockerCli(o.docker ?? 'docker');
   const gatewayIp = await ensureNetwork(o.network, o.docker, run);
   if ((o.isLocal ?? isLocalAddress)(gatewayIp)) {
@@ -215,7 +223,7 @@ export async function dockerGatewayRoute(o: { network: string; image: string; do
   return {
     listenHost: '127.0.0.1',
     connect: async (port) => {
-      const relay = await startRelay({ network: o.network, image: o.image, target: port, run });
+      const relay = await startRelay({ network: o.network, image: o.image ?? relayImage(), target: port, run });
       return { url: `http://${relay.address}:${relay.port}`, close: relay.close };
     },
   };
