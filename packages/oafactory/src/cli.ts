@@ -169,7 +169,8 @@ async function makeSandbox(flags: Flags): Promise<{ sandbox: Sandbox; route: Gat
   // The built-in Runner needs only Node. Use your own image when the work needs your project's toolchain.
   const image = (flags.image as string | undefined) ?? process.env.OAFACTORY_SANDBOX_IMAGE ?? DEFAULT_SANDBOX_IMAGE;
   const network = (flags.network as string | undefined) ?? SANDBOX_NETWORK;
-  return { sandbox: new DockerSandbox({ image, network }), route: await dockerGatewayRoute({ network, image }) };
+  // The relay, when one is needed, runs its own Node image, not the Worker's.
+  return { sandbox: new DockerSandbox({ image, network }), route: await dockerGatewayRoute({ network }) };
 }
 
 /** Turn a plain sentence into a work order. Scope comes from --scope, never from the sentence. */
