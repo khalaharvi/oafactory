@@ -52,6 +52,18 @@ export interface GatewayOptions {
   env?: NodeJS.ProcessEnv;
   fetch?: typeof fetch;
   log?: (msg: string) => void;
+  /** Waits between tries of the Gateway's own completions. Default: 1 and 4 seconds. */
+  retryDelaysMs?: number[];
+}
+
+/** Statuses a provider returns for overload or a passing fault; the same request can succeed when sent again. */
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 529]);
+
+/** "fetch failed" alone hides why; name the network error underneath it. */
+export function describeFetchError(e: unknown): string {
+  const err = e as { message?: string; cause?: { code?: string; message?: string } };
+  const cause = err.cause?.code ?? err.cause?.message;
+  return cause ? `${err.message ?? String(e)} (${cause})` : (err.message ?? String(e));
 }
 
 /**
@@ -102,9 +114,27 @@ export class Gateway {
     const body = m.provider === 'anthropic'
       ? { model: m.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }
       : { model: m.model, max_completion_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
-    const res = await this.upstream(m, m.provider === 'anthropic' ? '/v1/messages' : '/v1/chat/completions', {}, JSON.stringify(body));
-    const text = await res.text();
-    if (!res.ok) throw new Error(`model request failed (${res.status}): ${text.slice(0, 300)}`);
+    const path = m.provider === 'anthropic' ? '/v1/messages' : '/v1/chat/completions';
+    const delays = this.opts.retryDelaysMs ?? [1000, 4000];
+    const tries = delays.length + 1;
+    let res: Response | undefined;
+    let text = '';
+    // Only this call is retried. Proxied Worker requests are passed through as they are, and the Worker's own client decides.
+    for (let i = 0; i < tries; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, delays[i - 1]));
+      try {
+        res = await this.upstream(m, path, {}, JSON.stringify(body));
+      } catch (e) {
+        if ((e as Error).message.startsWith('provider key ')) throw e;
+        if (i === tries - 1) throw new Error(`could not reach ${m.provider} after ${tries} tries: ${describeFetchError(e)}. Check this machine's network connection to the provider.`);
+        this.opts.log?.(`gateway: ${alias} request failed: ${describeFetchError(e)}; trying again`);
+        continue;
+      }
+      text = await res.text();
+      if (res.ok || !RETRYABLE.has(res.status) || i === tries - 1) break;
+      this.opts.log?.(`gateway: ${alias} returned ${res.status}; trying again`);
+    }
+    if (!res!.ok) throw new Error(`model request failed (${res!.status}): ${text.slice(0, 300)}`);
     const t = extractUsage(text);
     this.store.addUsage(runId, resolvedModelName(m), t.input, t.output, this.cost(m, t));
     const json = JSON.parse(text) as { content?: Array<{ type: string; text?: string }>; choices?: Array<{ message: { content: string } }> };
