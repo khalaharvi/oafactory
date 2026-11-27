@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-27
+
 ### Fixed
 
 - The Docker sandbox works on Docker Desktop (macOS, and Windows in principle). Before, `oafactory run` and `oafactory conformance --live` failed with `listen EADDRNOTAVAIL`, because the internal network's address is inside Docker Desktop's VM. When that address is not on your machine, the Gateway now listens on loopback and a locked-down relay container forwards the Sandbox's traffic to it and nowhere else. Linux is unchanged.
@@ -78,6 +80,7 @@ The first release. It implements all eight build steps of specification v0.1, dr
 - No Postgres Ledger backend and no `pr-agent` Reviewer adapter yet.
 - See [Status and limits](docs/reference/status.mdx) for the full list, including where the implementation departs from the spec.
 
-[Unreleased]: https://github.com/khalaharvi/oafactory/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/khalaharvi/oafactory/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/khalaharvi/oafactory/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/khalaharvi/oafactory/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/khalaharvi/oafactory/releases/tag/v0.1.0
