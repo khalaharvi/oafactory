@@ -82,7 +82,11 @@ That is the correct result. The local sandbox is a child process with a scrubbed
 
 ### The Sandbox cannot reach the Gateway
 
-The Gateway listens on the address of the internal Docker network, `oafactory-sandbox`. If a host firewall blocks traffic from Docker networks to the host, allow it for that network only. The first line of the C1.1 result, "gateway reachable", tells you whether this is the problem.
+On Linux, the Gateway listens on the address of the internal Docker network, `oafactory-sandbox`. If a host firewall blocks traffic from Docker networks to the host, allow it for that network only.
+
+On Docker Desktop (macOS and Windows), containers run inside a VM, so that address is not on your machine. The Gateway then listens on `127.0.0.1`, and OAFactory starts a relay container for the length of the run. The relay is joined to the internal network and to Docker's default bridge, and forwards every connection to the Gateway and nowhere else. The Worker stays on the internal network alone. If the relay cannot start, check that the sandbox image has `node`, which the relay runs on, and that `docker run --rm <image> node -e "fetch('http://host.docker.internal')"` does not fail with a name lookup error.
+
+The first line of the C1.1 result, "gateway reachable", tells you whether the Sandbox can reach the Gateway.
 
 ### Package installs fail inside the Sandbox
 
