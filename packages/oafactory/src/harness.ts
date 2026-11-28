@@ -20,8 +20,13 @@ import type { Transport } from './workspace.js';
  * Flags differ between agent versions: check them, or use `use: command`.
  */
 export const RUNNER_COMMANDS: Record<string, string> = {
-  'mini-swe-agent': 'mini -m "$OAFACTORY_MODEL" -t "$OAFACTORY_TASK" -y --exit-immediately',
-  'claude-code': 'claude -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL" --dangerously-skip-permissions',
+  // Run live with mini-swe-agent 2.4.6. MSWEA_CONFIGURED skips its first-run setup prompt, which aborts without a terminal.
+  // Its model library (litellm) needs the provider in the model name, and fetches a price list from GitHub unless told not to.
+  // The Gateway meters spending, so mini's own cost limit is off.
+  'mini-swe-agent': 'MSWEA_CONFIGURED=true MSWEA_COST_TRACKING=ignore_errors LITELLM_LOCAL_MODEL_COST_MAP=True mini -m "$OAFACTORY_API_STYLE/$OAFACTORY_MODEL" -t "$OAFACTORY_TASK" -y --exit-immediately -l 0',
+  // Run live with Claude Code 2.1.332. Without the variable it also calls api.anthropic.com directly, which the Gateway refuses.
+  // Skipping permission prompts is what lets it run unattended; the Sandbox, not Claude Code, is the boundary.
+  'claude-code': 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 claude -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL" --dangerously-skip-permissions',
   pi: 'pi -p "$OAFACTORY_TASK" --model "$OAFACTORY_MODEL"',
   codex: 'codex exec --full-auto -m "$OAFACTORY_MODEL" "$OAFACTORY_TASK"',
 };
@@ -124,10 +129,11 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
   const runner = gateway.describe(config.roles.runner.model);
   const reviewerModel = gateway.describe(config.roles.reviewer.model);
   const builtin = config.roles.runner.use === 'builtin';
-  const runnerEnv: Record<string, string> = builtin ? {
-    OAFACTORY_AGENT: sandbox.toolPath(deps.agentDir ?? dirname(fileURLToPath(import.meta.url)), AGENT_ENTRY),
+  // Every Runner learns which API style its model alias speaks, so a command can name the provider (mini-swe-agent needs it).
+  const runnerEnv: Record<string, string> = {
     OAFACTORY_API_STYLE: gateway.model(config.roles.runner.model)!.provider,
-  } : {};
+    ...(builtin ? { OAFACTORY_AGENT: sandbox.toolPath(deps.agentDir ?? dirname(fileURLToPath(import.meta.url)), AGENT_ENTRY) } : {}),
+  };
   const reviewer = deps.reviewer ?? makeReviewer(config, gateway, sandbox, (k) => gatewayEnv(deps.gatewayUrl, k));
   if (!sandbox.contained) log('warning: the sandbox is not contained; do not run untrusted work this way');
 
