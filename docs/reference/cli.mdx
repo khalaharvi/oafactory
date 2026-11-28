@@ -20,11 +20,16 @@ oafactory <command> [options]
 | `run "<what you want done>" [--scope <paths>]` | Run a request written as a sentence: agent, change, review, Gate |
 | `run <work-order.yaml>` | The same, from a work order file |
 | `run --issue <n> [--scope <paths>]` | The same, from an issue a maintainer labelled `oafactory` |
+| `run ... --no-context` | Run without the knowledge graph's background for the Runner and the Reviewer |
 | `gate <change> [--wait <minutes>] [--no-comment]` | Evaluate one change and write its receipt |
 | `watch [--every <minutes>] [--merge-reverts]` | Watch merged changes; rerun, revert and record outcomes |
 | `standing` | Show standing and promotion progress per tier |
 | `standing --promote <tier> --confirm <name>` | Promote an eligible tier |
 | `scoreboard [--json]` | Accept rate, cost, escalations, agreement and reverts |
+| `graph [--json]` | The [knowledge graph](/concepts/knowledge-graph): counts, path rules with their history, and the tiers each check blocks |
+| `graph show <node-id> [--json]` | One node and everything linked to it |
+| `graph export` | The whole graph and its ontology as JSON-LD |
+| `graph context <work-order.yaml>` | The background a Runner would be given for this work order |
 | `ledger export` | Every record as JSON Lines |
 | `ledger show <receipt-id>` | One receipt |
 | `ledger verify <receipt-id> --key <public.pem>` | Verify a local-key signature |

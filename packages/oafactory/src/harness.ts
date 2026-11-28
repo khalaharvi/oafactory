@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_PATH, effectiveBudget, parseFactoryConfig, type FactoryConfig } from './config.js';
+import type { ContextSource } from './context.js';
 import type { Gateway } from './gateway.js';
 import { gate, recordAbandoned, type GateDeps, type GateOptions, type GateResult } from './gate.js';
 import type { Host, Issue } from './host/types.js';
@@ -89,6 +90,11 @@ export interface HarnessDeps {
   /** Directory holding the compiled built-in Runner. Defaults to this module's directory. */
   agentDir?: string;
   reviewer?: Reviewer;
+  /**
+   * Background for the Runner and the Reviewer, from the knowledge graph. Leave it
+   * out and each is given exactly the task (and, for the Reviewer, the diff).
+   */
+  context?: ContextSource;
   gateOptions?: GateOptions;
   now?: () => Date;
   log?: (msg: string) => void;
@@ -131,6 +137,17 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
   const reviewer = deps.reviewer ?? makeReviewer(config, gateway, sandbox, (k) => gatewayEnv(deps.gatewayUrl, k));
   if (!sandbox.contained) log('warning: the sandbox is not contained; do not run untrusted work this way');
 
+  // Background is advice. A failure to produce it never stops or changes a run.
+  const background = (who: string, make: (source: ContextSource) => string): string => {
+    if (!deps.context) return '';
+    try {
+      return make(deps.context);
+    } catch (e) {
+      log(`warning: no factory context for the ${who} (${(e as Error).message})`);
+      return '';
+    }
+  };
+
   const results: AttemptResult[] = [];
   let feedback = '';
   for (let attempt = 1; attempt <= budget.max_attempts; attempt++) {
@@ -156,7 +173,9 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
       const baseSha = await transport.checkout(work, baseRef);
       store.updateRun(id, { state: 'running', base_sha: baseSha, started_at: now().toISOString() });
       const key = gateway.issueKey(id, budget.usd_per_run);
-      const task = feedback ? `${wo.intent}\n\nA previous attempt was not accepted:\n${feedback}` : wo.intent;
+      const runnerContext = background('Runner', (c) => c.runner(config, wo));
+      const task = [feedback ? `${wo.intent}\n\nA previous attempt was not accepted:\n${feedback}` : wo.intent, ...(runnerContext ? [runnerContext] : [])].join('\n\n');
+      if (runnerContext) log(`run ${id}: the Runner's task carries factory context from the knowledge graph`);
       log(`run ${id}: ${config.roles.runner.use} on ${runner.resolved}, budget $${budget.usd_per_run} / ${budget.minutes_per_run} min`);
       const nodeEnv: Record<string, string> = {};
       if (builtin) {
@@ -197,7 +216,9 @@ export async function runWorkOrder(deps: HarnessDeps, wo: WorkOrder): Promise<At
         const baseInstructions = await Promise.all((await walk(baseDir)).filter(isInstructionFile).map(async (p) => ({ path: p, content: await readFile(join(baseDir, p), 'utf8') })));
         await useBaseInstructions(work, baseDir);
         await writeFile(join(work, '.oafactory-review.diff'), pub.diff);
-        const verdict = await reviewer({ intent: wo.intent, diff: pub.diff, baseInstructions, runId: id, checkout: work });
+        const files = deps.context ? await host.listFiles(number) : [];
+        const reviewerContext = background('Reviewer', (c) => c.reviewer(config, wo, files));
+        const verdict = await reviewer({ intent: wo.intent, diff: pub.diff, baseInstructions, runId: id, checkout: work, ...(reviewerContext ? { context: reviewerContext } : {}) });
         store.putReview({
           repo: host.repo, change: number, head_sha: pub.headSha, verdict: verdict.verdict, comments: verdict.comments,
           reviewer: config.roles.reviewer.use, reviewer_model: reviewerModel.resolved, reviewer_family: reviewerModel.family, runner_family: runner.family,

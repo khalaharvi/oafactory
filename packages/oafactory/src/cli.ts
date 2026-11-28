@@ -7,9 +7,11 @@ import { classify } from './classify.js';
 import { CONFIG_PATH, parseFactoryConfig, parseGatewayConfig, parseWorkOrder } from './config.js';
 import { demo } from './demo.js';
 import { run as sh } from './exec.js';
+import { graphContext, runnerContext } from './context.js';
 import { explainReceipt, explainWorkOrder } from './explain.js';
 import { Gateway } from './gateway.js';
 import { gate, type GateDeps } from './gate.js';
+import { ONTOLOGY, ruleHistory, syncGraph, toJsonLd } from './graph.js';
 import { runWorkOrder, workOrderFromIssue } from './harness.js';
 import { detectHost, type Host } from './host/index.js';
 import { GATEWAY_EXAMPLE, init } from './init.js';
@@ -56,6 +58,10 @@ Operate the factory
 
 Inspect
   scoreboard [--json]          Accept rate, cost, escalations, agreement and reverts
+  graph [--json]               The knowledge graph: rules, history, and where work went wrong
+  graph show <node-id>         One node and everything linked to it
+  graph export                 The whole graph and its ontology as JSON-LD
+  graph context <work-order.yaml>   The background a Runner would be given
   ledger export                Every record as JSON Lines
   ledger show <receipt-id>     One receipt
   ledger verify <receipt-id> --key <public.pem>
@@ -108,7 +114,7 @@ async function hostFor(flags: Flags, role: 'HARNESS' | 'GATE' | 'WATCHER'): Prom
 
 function stores(flags: Flags) {
   const db = openDb((flags.ledger as string | undefined) ?? defaultLedgerPath());
-  return { ledger: new Ledger(db), store: new Store(db) };
+  return { db, ledger: new Ledger(db), store: new Store(db) };
 }
 
 async function signerFrom(flags: Flags): Promise<Signer | undefined> {
@@ -258,7 +264,7 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
   },
 
   async run(args, flags) {
-    const { ledger, store } = stores(flags);
+    const { db, ledger, store } = stores(flags);
     const harnessHost = await hostFor(flags, 'HARNESS');
     const gateHost = await hostFor(flags, 'GATE');
     const base = await harnessHost.defaultBranch();
@@ -288,6 +294,7 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
         host: harnessHost, gate: { host: gateHost, ledger, store, signer: await signerFrom(flags) }, gateway,
         gatewayUrl: link.url, sandbox, transport: new GitTransport(harnessHost.cloneUrl(), token),
         gateOptions: { waitMs: Number(flags.wait ?? 30) * 60_000 }, log: err,
+        ...(flags['no-context'] ? {} : { context: graphContext({ db, ledger, store, repo: harnessHost.repo }) }),
       }, wo);
       if (flags.json) out(JSON.stringify(results.map((r) => ({ run: r.run.id, change: r.change, decision: r.gate?.decision ?? 'abandon', reason: r.gate?.statement.predicate.decision.reason ?? r.abandoned })), null, 2));
       else for (const r of results) out(`${r.run.id}  ${(r.gate?.decision ?? 'abandon').toUpperCase()}  ${r.change ? `change #${r.change}` : 'no change'}  ${r.gate?.statement.predicate.decision.reason ?? r.abandoned}`);
@@ -350,6 +357,54 @@ const commands: Record<string, (args: string[], flags: Flags) => Promise<number>
     out(`Cost per accepted change         ${usd(sb.cost_per_accepted_change)}`);
     out(`Escalations per accepted change  ${sb.escalations_per_accepted_change === null ? 'n/a' : sb.escalations_per_accepted_change.toFixed(2)}`);
     for (const t of sb.by_tier) out(`Tier ${t.tier}: would-merge ${t.would_merge}, merged ${t.merged}, held ${t.held}, reverted ${t.reverted}, agreement ${pct(t.agreement)}, revert rate ${pct(t.revert_rate)}`);
+    return 0;
+  },
+
+  async graph(args, flags) {
+    const host = await hostFor(flags, 'GATE');
+    const { db, ledger, store } = stores(flags);
+    const text = await host.readFile(CONFIG_PATH, await host.defaultBranch());
+    if (text === null) throw new Error(`${CONFIG_PATH} does not exist on the default branch; run \`oafactory init\` and merge it first`);
+    const config = parseFactoryConfig(text);
+    const { graph, rebuilt } = syncGraph({ db, ledger, store, repo: host.repo, config });
+    const [sub, target] = args;
+    if (sub === 'export') { out(JSON.stringify(toJsonLd(graph), null, 2)); return 0; }
+    if (sub === 'context') {
+      if (!target || !existsSync(resolve(target))) throw new Error('usage: oafactory graph context <work-order.yaml>');
+      out(runnerContext(graph, parseWorkOrder(await readFile(resolve(target), 'utf8'))));
+      return 0;
+    }
+    if (sub === 'show') {
+      const node = target ? graph.node(target) : undefined;
+      if (!node) throw new Error(`there is no node "${target ?? ''}" in the graph. Run \`oafactory graph --json\` to list node ids; they look like tier:1, check:test or receipt:0042-1.`);
+      const links = {
+        out: graph.edges.filter((e) => e.from === node.id).map((e) => ({ rel: e.rel, to: e.to, inferred: e.inferred })),
+        in: graph.edges.filter((e) => e.to === node.id).map((e) => ({ rel: e.rel, from: e.from, inferred: e.inferred })),
+      };
+      if (flags.json) { out(JSON.stringify({ ...node, ...links }, null, 2)); return 0; }
+      out(`${node.id}  (${node.type})  ${node.label}`);
+      out(`  ${ONTOLOGY.classes[node.type].description}`);
+      for (const [k, v] of Object.entries(node.props)) out(`  ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+      for (const e of links.out) out(`  -${e.rel}-> ${e.to}${e.inferred ? '  (inferred)' : ''}`);
+      for (const e of links.in) out(`  <-${e.rel}- ${e.from}${e.inferred ? '  (inferred)' : ''}`);
+      return 0;
+    }
+    if (sub) throw new Error('usage: oafactory graph [--json] | show <node-id> | export | context <work-order.yaml>');
+    if (flags.json) { out(JSON.stringify({ repo: graph.repo, nodes: [...graph.nodes.values()], edges: graph.edges }, null, 2)); return 0; }
+    const byType = new Map<string, number>();
+    for (const n of graph.nodes.values()) byType.set(n.type, (byType.get(n.type) ?? 0) + 1);
+    out(`${graph.repo}  ${graph.nodes.size} nodes, ${graph.edges.length} links (${graph.edges.filter((e) => e.inferred).length} inferred)${rebuilt ? ', rebuilt just now' : ', already up to date'}`);
+    out([...byType].map(([t, n]) => `${t} ${n}`).join('   '));
+    out('');
+    out('Path rules, with what happened to changes whose tier they set');
+    for (const r of graph.ofType('PathRule')) {
+      const h = ruleHistory(graph, r.id);
+      const wrong = graph.out(r.id, 'went_wrong_in').length;
+      out(`  ${r.label.padEnd(24)} tier ${r.props.tier}  ${String(r.props.kind).padEnd(11)} ${h.receipts} changes, ${h.escalated} escalated, ${h.reverted} reverted${wrong ? col(31, `  went wrong ${wrong}x`) : ''}`);
+    }
+    out('');
+    out('Checks, and the tiers each one blocks when it fails');
+    for (const c of graph.ofType('Check')) out(`  ${c.label.padEnd(24)} ${graph.out(c.id, 'gates').map((t) => t.label).join(', ')}`);
     return 0;
   },
 
@@ -439,7 +494,7 @@ export async function main(argv: string[]): Promise<number> {
     args: argv, allowPositionals: true, strict: false,
     options: {
       json: { type: 'boolean' }, force: { type: 'boolean' }, live: { type: 'boolean' }, verbose: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'v' },
-      'no-comment': { type: 'boolean' }, 'merge-reverts': { type: 'boolean' },
+      'no-comment': { type: 'boolean' }, 'merge-reverts': { type: 'boolean' }, 'no-context': { type: 'boolean' },
       repo: { type: 'string' }, host: { type: 'string' }, ledger: { type: 'string' }, base: { type: 'string' }, scope: { type: 'string' }, wait: { type: 'string' },
       issue: { type: 'string' }, sandbox: { type: 'string' }, image: { type: 'string' }, network: { type: 'string' }, signer: { type: 'string' }, 'signing-key': { type: 'string' },
       'gateway-config': { type: 'string' }, listen: { type: 'string' }, every: { type: 'string' }, promote: { type: 'string' }, confirm: { type: 'string' }, key: { type: 'string' }, out: { type: 'string' },

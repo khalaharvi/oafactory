@@ -103,7 +103,7 @@ Inside the Sandbox the agent gets:
 
 | Variable | Value |
 |---|---|
-| `OAFACTORY_TASK` | The work order's intent, plus feedback from a failed attempt |
+| `OAFACTORY_TASK` | The work order's intent, plus feedback from a failed attempt, plus background from the [knowledge graph](/concepts/knowledge-graph) unless the run was started with `--no-context` |
 | `OAFACTORY_MODEL` | The model alias |
 | `OAFACTORY_GATEWAY_URL`, `OAFACTORY_RUN_KEY` | The Gateway and this run's key |
 | `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` | Point Anthropic-style clients at the Gateway |

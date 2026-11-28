@@ -10,6 +10,8 @@ export interface ReviewInput {
   runId: string;
   /** For command reviewers: a head checkout whose instruction files were reset to the base branch. */
   checkout?: string;
+  /** Background from the knowledge graph (context.ts). Fixed wording built from the config and the Ledger; never from the Runner. */
+  context?: string;
 }
 export interface ReviewVerdict { verdict: 'approve' | 'request_changes'; comments: string[] }
 
@@ -21,7 +23,7 @@ Reply with one JSON object and nothing else: {"verdict": "approve" | "request_ch
 export function buildReviewPrompt(input: ReviewInput): string {
   const rules = input.baseInstructions.map((f) => `### ${f.path}\n${f.content}`).join('\n\n');
   const diff = input.diff.length > 150_000 ? `${input.diff.slice(0, 150_000)}\n[diff truncated]` : input.diff;
-  return `## Task\n${input.intent}\n\n${rules ? `## Repository conventions (from the base branch)\n${rules}\n\n` : ''}## Diff\n\`\`\`diff\n${diff}\n\`\`\``;
+  return `## Task\n${input.intent}\n\n${rules ? `## Repository conventions (from the base branch)\n${rules}\n\n` : ''}${input.context ? `${input.context}\n\n` : ''}## Diff\n\`\`\`diff\n${diff}\n\`\`\``;
 }
 
 /** Parse a reviewer reply. Anything that is not a clear approval is `request_changes`. */
@@ -48,7 +50,7 @@ export function makeReviewer(config: FactoryConfig, gateway: Gateway, sandbox: S
     return async (input) => {
       if (!input.checkout) throw new Error('command reviewers need a checkout');
       const key = gateway.issueKey(input.runId, Infinity);
-      const r = await sandbox.exec(role.command!, { cwd: input.checkout, timeoutMs: 15 * 60_000, env: { ...gatewayEnv(key), OAFACTORY_MODEL: role.model, OAFACTORY_TASK: input.intent, OAFACTORY_DIFF_FILE: '.oafactory-review.diff' } });
+      const r = await sandbox.exec(role.command!, { cwd: input.checkout, timeoutMs: 15 * 60_000, env: { ...gatewayEnv(key), OAFACTORY_MODEL: role.model, OAFACTORY_TASK: input.intent, OAFACTORY_DIFF_FILE: '.oafactory-review.diff', ...(input.context ? { OAFACTORY_CONTEXT: input.context } : {}) } });
       return parseVerdict(r.stdout);
     };
   }

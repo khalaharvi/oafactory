@@ -33,6 +33,7 @@ All eight steps of the spec's build order:
 | Built-in Runner | Covered by the test suite, and run in `node:22-slim` and `node:26-slim` containers for a complete work order against this project's own repository, with a scripted stand-in for the model. Driven by a real Anthropic model (`claude-sonnet-5-5`) for one small documentation work order. **Not yet tried with an OpenAI-style model** |
 | **Sigstore signing** | Calls the `sigstore` package's attest function. **Not exercised**: it needs live Fulcio and Rekor |
 | Node 26 features | Run for real in a `node:26-slim` container: the built-in Runner completes a work order under Node's permission model, is refused file access outside the project, and can still run `npm`. Proxy-aware `fetch` reaches the Gateway's proxy; a full HTTPS request through it could not be completed in the test environment, whose network intercepts TLS |
+| Knowledge graph | Building, inference, SQLite storage and the Runner and Reviewer background are covered by the test suite, with a local sandbox and a stand-in Reviewer. **Not yet run**: the `oafactory graph` command against a real repository, and a real model reading the background. **Not measured**: whether the background makes a Runner's work or a Reviewer's verdicts better or worse. The JSON-LD export has not been checked with a JSON-LD processor, and its `oafactory.org` namespace is not registered |
 | MCP server | Driven end to end by the official v2 MCP client over stdio in the test suite, and Claude Code's health check connects to it. **Not yet tried**: Claude Desktop, a conversation with a real assistant, and `run_work_order` starting a real run |
 | **Third-party agent command lines** | Starting points only. **No real agent has been run through them** |
 | Real model providers | Anthropic: the Gateway proxied and metered a real Runner's requests to the Messages API, and its Reviewer call returned a verdict when tried on its own. In the one live run, the Reviewer's request timed out at the network level, so no review was recorded. **OpenAI not yet tried** |
@@ -50,6 +51,8 @@ All eight steps of the spec's build order:
 | Run records | The Ledger has three record kinds | Run state, reviews and Gateway usage live in separate, mutable tables in the same database file |
 | Exact-inverse reverts | The Gate may merge a revert that is the exact inverse of a factory-merged commit | Checked by comparing trees, so only a revert with nothing merged in between qualifies |
 | Second attempts | A failed check or review may start another attempt | Each attempt restarts from the base branch and opens its own change |
+| What agents are given | The Runner receives the task; the Reviewer reads "the diff from a fresh context" | `oafactory run` also gives both a fixed-wording block built from the base-branch config and the Ledger: see [Knowledge graph](/concepts/knowledge-graph). It contains nothing from the Runner, and `--no-context` turns it off. The Gate does not read it |
+| Derived tables | The Ledger has three record kinds | The knowledge graph is stored in three more mutable tables in the same database file, rebuilt from the config and the Ledger |
 | `pr-agent` | Named as the example Reviewer | No adapter yet; use `builtin` or `command` |
 | Receipt fields | The example predicate | Adds `issued_at` and `run.attempt` |
 

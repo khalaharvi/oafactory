@@ -1,0 +1,103 @@
+---
+title: Knowledge graph
+description: A typed graph of the factory's building blocks and its history, and the background it gives the Runner and the Reviewer.
+---
+
+The knowledge graph joins three things that otherwise live apart: the specification's terms, this repository's rules, and the record of what has happened. It lets a person, or an agent, ask questions that cross them, such as "which path rules have had changes reverted" or "which tiers does this check block".
+
+It is advice. The Gate does not read it, and it is not evidence.
+
+## What is in it
+
+Every node has a type, and every link is a named relation between two types. A link that does not fit is refused when the graph is built.
+
+| Node type | Where it comes from |
+|---|---|
+| `Role`, `Tier`, `EvidenceKind` | The specification |
+| `Repository`, `Check`, `PathRule` | `.oafactory/factory.yaml` on the base branch |
+| `WorkOrder`, `Run`, `Change` | The run records |
+| `Receipt`, `Outcome`, `StandingEvent` | The Ledger |
+
+| Relation | From, to | Meaning |
+|---|---|---|
+| `requires` | Tier, EvidenceKind | The tier's bar includes this evidence |
+| `produced_by` | EvidenceKind, Role | The role that produces it |
+| `provides` | Check, EvidenceKind | The check's result counts toward it |
+| `assigns` | PathRule, Tier | A file matching the rule gets at least this tier |
+| `has_standing` | Repository, Tier | Automatic merging is earned at this tier |
+| `attempt_of`, `opened` | Run, WorkOrder or Change | The run's work order and the change it opened |
+| `issued_for`, `about`, `classified` | Receipt, Run or Change or Tier | What the receipt records |
+| `met`, `missed` | Receipt, EvidenceKind | Evidence that was met, or required and not met |
+| `touched` | Receipt, PathRule | A file that set the change's tier matched this rule |
+| `resolves` | Outcome, Receipt | What happened after the decision |
+| `flaky` | Outcome, Check | The check passed only after failing |
+| `changed` | StandingEvent, Tier | A promotion or demotion |
+
+Two relations are inferred from the others by fixed rules. No model is involved.
+
+| Inferred relation | Rule |
+|---|---|
+| `gates` (Check, Tier) | The check provides evidence that the tier requires |
+| `went_wrong_in` (PathRule, Outcome) | A change that touched the rule was reverted, failed its watch, or was rejected by a person after a would-merge |
+
+## What is left out, and why
+
+The graph holds no text written by an issue author, a Worker or a model: no intent, no file names, no decision reasons, no review comments. Every label is a spec term, a number, or a string from the base-branch config. That is what makes it safe to quote to an agent.
+
+A receipt is linked to a path rule by reading the end of each line of its tier reason and comparing it with the patterns in the config. The file name at the start of the line, which the Worker chose, is never used.
+
+## Where it is stored
+
+The graph is kept in three tables, `graph_nodes`, `graph_edges` and `graph_meta`, in the same SQLite file as the Ledger. They are separate from the Ledger's append-only table, and the graph never writes to it.
+
+The config and the Ledger remain the only sources of truth. The graph is rebuilt from them whenever either has changed, and it can be deleted at any time without losing anything.
+
+## Looking at it
+
+```bash
+oafactory graph                        # counts, path rules with their history, checks
+oafactory graph show tier:1            # one node and its links
+oafactory graph show receipt:0042-1
+oafactory graph --json                 # every node and link
+oafactory graph export                 # JSON-LD, with the ontology
+oafactory graph context work-order.yaml   # what a Runner would be told
+```
+
+Node ids look like `tier:1`, `evidence:review`, `check:test`, `rule:tier:src/**`, `rule:protected:.github/`, `rule:default`, `workorder:0042`, `run:0042-1`, `change:17`, `receipt:0042-1` and `outcome:0042-1`.
+
+## What the agents are told
+
+`oafactory run` gives the Runner and the Reviewer a short block of background read off the graph. The wording is fixed, so the same graph always gives the same text.
+
+The Runner's task ends with:
+
+- the path rules that may apply to the work order's scope, and the evidence each tier needs;
+- how many earlier changes went through the Gate, and which evidence was most often missing;
+- the path rules under which accepted work later went wrong.
+
+The Reviewer is given, between the task and the diff:
+
+- the tier of the change in front of it and the rules that set it;
+- how many changed paths are outside the work order's scope, as a count;
+- what happened to earlier changes under the same rules, and which checks were flaky there.
+
+A Reviewer started with `use: command` receives the same text in `OAFACTORY_CONTEXT`.
+
+The Runner is not told about holdout results or audit sampling. The Reviewer's block ends by saying it is never a reason to approve.
+
+To run without it:
+
+```bash
+oafactory run work-order.yaml --no-context
+```
+
+<Warning>
+This background changes what the Reviewer sees, and a review is evidence. It is built only from the base-branch config and the Ledger, never from the Runner, but its effect on review quality has not been measured. See [Status and limits](/reference/status).
+</Warning>
+
+## Limits
+
+- A receipt records only the files that set the tier, so `touched` links cover those rules and not every rule a change matched.
+- `missed` is worked out against the current config. A receipt written under an older config may show evidence as missed that was not required then.
+- Receipts are linked to the path rules of the current config. History under a pattern that has since been removed is not linked to any rule.
+- The graph describes the factory, not your code. It has no knowledge of imports, modules or which tests cover which files.

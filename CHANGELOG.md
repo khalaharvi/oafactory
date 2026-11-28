@@ -4,6 +4,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- A knowledge graph of the factory's building blocks: the spec's roles, tiers and evidence kinds, the repository's checks and path rules, and its work orders, runs, receipts, outcomes and standing, linked by typed relations. It is stored in SQLite beside the Ledger and rebuilt whenever the config or the Ledger changes. `oafactory graph` shows it, `graph show <node-id>` follows one node, and `graph export` writes JSON-LD.
+- `oafactory run` now gives the Runner and the Reviewer a short block of background from the graph: the rules and evidence bars that apply, and what happened to earlier changes under the same rules. It is built only from the base-branch config and the Ledger, and the Gate does not read it. Pass `--no-context` to run without it.
+
 ## [0.3.0] - 2026-11-27
 
 ### Fixed
